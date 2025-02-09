@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mpc_remote"
+version = "0.1.0"
+description = "ZeroMQ implementation of the Model Context Protocol"
+readme = "README.md"
+authors = [
+  {name = "MPC Remote Contributors"}
+]
+requires-python = ">=3.8"
+license = {text = "MIT"}
+dependencies = [
+    "pyzmq>=25.1.2",
+    "jsonschema>=4.0.0",
+    "cryptography>=3.4.0" 
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.3.5"
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = ["mpc_remote"]
+
+[tool.pytest.ini_options]
+# Configure asyncio handling
+asyncio_mode = "auto"
+# Set the default fixture loop scope to function level for better isolation
+asyncio_default_fixture_loop_scope = "function"
+
+# Test discovery paths
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+# Test execution options
+addopts = [
+    "-v",                 # Verbose output
+    "--cov=mpc_remote",   # Enable coverage for our package
+    "--cov-report=term",  # Show coverage in terminal
+    "--cov-report=html",  # Generate HTML coverage report
+]
+
+[tool.coverage.run]
+source = ["mpc_remote"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
