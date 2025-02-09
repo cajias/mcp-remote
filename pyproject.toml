@@ -33,7 +33,6 @@ packages = ["mpc_remote"]
 [tool.pytest.ini_options]
 # Configure asyncio handling
 asyncio_mode = "auto"
-# Set the default fixture loop scope to function level for better isolation
 asyncio_default_fixture_loop_scope = "function"
 
 # Test discovery paths
