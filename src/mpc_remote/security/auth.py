@@ -1,8 +1,10 @@
 """Authentication layer for Model Context Protocol"""
 
-from typing import Dict, Any, Optional, Protocol, runtime_checkable
-from ..core.protocol import ProtocolHandler
+from typing import Any, Dict, Optional, Protocol, runtime_checkable
+
 from ..core.errors import MCPError, MCPErrorCode
+from ..core.protocol import ProtocolHandler
+
 
 @runtime_checkable
 class AuthProvider(Protocol):

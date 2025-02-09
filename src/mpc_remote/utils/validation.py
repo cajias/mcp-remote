@@ -1,10 +1,12 @@
 """Validation utilities for Model Context Protocol"""
 
-from typing import Any, Dict, Optional, Union, Callable
-import re
 import json
-import jsonschema
+import re
 from enum import Enum, auto
+from typing import Any, Callable, Dict, Optional, Union
+
+import jsonschema
+
 
 class ValidationError(Exception):
     """Custom exception for validation failures"""
@@ -70,7 +72,7 @@ class Validator:
         
         except Exception as e:
             raise ValidationError(
-                f"Validation failed: {str(e)}",
+                f"Validation failed: {e!s}",
                 details={
                     'data': data,
                     'validation_type': validation_type.name

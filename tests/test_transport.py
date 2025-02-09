@@ -1,10 +1,12 @@
 """Tests for ZeroMQ transport implementation"""
 
-import pytest
 import asyncio
-import json
+
+import pytest
 import zmq.asyncio
-from mpc_remote.transport.zmq import ZMQTransport, ZMQTransportError
+
+from mpc_remote.transport.zmq import ZMQTransport
+
 
 @pytest.mark.asyncio
 async def test_client_server_communication():

@@ -1,10 +1,12 @@
 """Core protocol implementation for Model Context Protocol"""
 
 import asyncio
-from typing import Dict, Any, Optional, Callable
-from dataclasses import dataclass, field, asdict
+from dataclasses import asdict, dataclass, field
+from typing import Any, Callable, Dict, Optional
+
 from .constants import ResourceAccessLevel, ToolType
-from .errors import MCPError, ProtocolVersionError
+from .errors import MCPError
+
 
 @dataclass
 class Resource:
@@ -148,6 +150,6 @@ class ProtocolHandler:
             
         except Exception as e:
             raise MCPError(
-                f"Tool execution failed: {str(e)}",
+                f"Tool execution failed: {e!s}",
                 details={"tool": tool_name, "params": params}
             )

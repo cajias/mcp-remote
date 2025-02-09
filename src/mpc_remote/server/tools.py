@@ -1,12 +1,13 @@
 """Tool management for MCP server"""
 
-from typing import Dict, Any, Optional, Callable, Type
-from dataclasses import dataclass, field
-import inspect
-import json
 import asyncio
+import inspect
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Optional
+
 from ..core.constants import ToolType
 from ..core.errors import MCPError
+
 
 class ToolManager:
     """
@@ -16,7 +17,7 @@ class ToolManager:
     """
     def __init__(self):
         """Initialize tool manager"""
-        self._tools: Dict[str, 'Tool'] = {}
+        self._tools: Dict[str, Tool] = {}
         self._tool_validators: Dict[str, Callable] = {}
     
     def register_tool(
@@ -162,7 +163,7 @@ class ToolManager:
             else:
                 raise MCPError(f"Unsupported tool type: {tool.type}")
         except Exception as e:
-            raise MCPError(f"Tool execution failed: {str(e)}")
+            raise MCPError(f"Tool execution failed: {e!s}")
     
     def _validate_params(self, tool: 'Tool', params: Dict[str, Any]):
         """
@@ -180,7 +181,7 @@ class ToolManager:
             from jsonschema import validate
             validate(instance=params, schema=tool.params_schema)
         except Exception as e:
-            raise MCPError(f"Parameter validation failed: {str(e)}")
+            raise MCPError(f"Parameter validation failed: {e!s}")
 
 @dataclass
 class Tool:

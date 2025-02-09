@@ -1,11 +1,13 @@
 """Pytest configuration and shared fixtures"""
 
-import pytest
 import asyncio
-import zmq.asyncio
-from mpc_remote.transport.zmq import ZMQTransport
+
+import pytest
+
 from mpc_remote.core.protocol import ProtocolHandler
 from mpc_remote.security.auth import AuthProvider
+from mpc_remote.transport.zmq import ZMQTransport
+
 
 # Enable asyncio support for pytest
 @pytest.fixture

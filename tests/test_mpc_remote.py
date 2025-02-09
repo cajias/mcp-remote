@@ -5,9 +5,6 @@
 import pytest
 
 
-from mpc_remote import mpc_remote
-
-
 @pytest.fixture
 def response():
     """Sample pytest fixture.

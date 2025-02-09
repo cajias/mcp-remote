@@ -1,11 +1,14 @@
 """ZeroMQ transport implementation for Model Context Protocol"""
 
+import asyncio
+import json
+from typing import Any, Dict, Optional
+
 import zmq
 import zmq.asyncio
-import json
-import asyncio
-from typing import Dict, Any, Optional, Union
+
 from ..core.errors import MCPError
+
 
 class ZMQTransportError(MCPError):
     """Transport-specific errors"""
@@ -93,7 +96,7 @@ class ZMQTransport:
             )
         except zmq.ZMQError as e:
             raise ZMQTransportError(
-                f"ZMQ error: {str(e)}",
+                f"ZMQ error: {e!s}",
                 details={"errno": e.errno}
             )
         except json.JSONDecodeError as e:

@@ -1,10 +1,13 @@
 """Tests for core protocol components"""
 
-import pytest
 import asyncio
-from mpc_remote.core.protocol import ProtocolHandler, Resource, Tool
-from mpc_remote.core.errors import MCPError
+
+import pytest
+
 from mpc_remote.core.constants import ResourceAccessLevel, ToolType
+from mpc_remote.core.errors import MCPError
+from mpc_remote.core.protocol import ProtocolHandler, Resource, Tool
+
 
 @pytest.mark.asyncio
 async def test_protocol_handler_initialization():

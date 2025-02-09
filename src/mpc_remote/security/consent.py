@@ -1,9 +1,10 @@
 """Consent management for Model Context Protocol"""
 
-from typing import Dict, Any, Optional, Callable, List
-from enum import Enum, auto
 import uuid
 from dataclasses import dataclass, field
+from enum import Enum, auto
+from typing import Any, Callable, Dict, Optional
+
 
 class ConsentStatus(Enum):
     """Represents the status of user consent"""

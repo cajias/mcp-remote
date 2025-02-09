@@ -1,11 +1,13 @@
 """Integration tests for MPC Remote"""
 
-import pytest
 import asyncio
-from mpc_remote.core.protocol import Tool, ProtocolHandler
+
+import pytest
+
 from mpc_remote.core.constants import ToolType
-from mpc_remote.transport.zmq import ZMQTransport
+from mpc_remote.core.protocol import Tool
 from mpc_remote.security.auth import AuthenticatedProtocolHandler
+
 
 @pytest.mark.asyncio
 async def test_complete_workflow(transport_pair, mock_auth_provider):

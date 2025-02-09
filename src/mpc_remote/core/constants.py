@@ -2,6 +2,7 @@
 
 from enum import Enum, auto
 
+
 class ResourceAccessLevel(Enum):
     """
     Defines access levels for resources

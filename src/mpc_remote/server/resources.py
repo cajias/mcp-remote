@@ -1,8 +1,10 @@
 """Resource management for MCP server"""
 
-from typing import Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Optional
+
 from ..core.constants import ResourceAccessLevel
+
 
 class ResourceManager:
     """
@@ -12,7 +14,7 @@ class ResourceManager:
     """
     def __init__(self):
         """Initialize resource manager"""
-        self._resources: Dict[str, 'Resource'] = {}
+        self._resources: Dict[str, Resource] = {}
         self._access_hooks: Dict[str, Callable] = {}
     
     def register_resource(

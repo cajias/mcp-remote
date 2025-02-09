@@ -1,11 +1,13 @@
 """Tests for authentication layer implementation"""
 
+
 import pytest
-from typing import Dict
-from mpc_remote.core.protocol import Tool, ProtocolHandler
+
 from mpc_remote.core.constants import ToolType
 from mpc_remote.core.errors import MCPError
-from mpc_remote.security.auth import AuthProvider, AuthenticatedProtocolHandler
+from mpc_remote.core.protocol import Tool
+from mpc_remote.security.auth import AuthenticatedProtocolHandler, AuthProvider
+
 
 @pytest.fixture
 def test_auth_provider():

@@ -1,7 +1,8 @@
 """Error handling for Model Context Protocol"""
 
 from enum import IntEnum
-from typing import Optional, Any, Dict
+from typing import Any, Dict, Optional
+
 
 class MCPErrorCode(IntEnum):
     """

@@ -1,12 +1,14 @@
 """Base server implementation for Model Context Protocol"""
 
-from typing import Dict, Any, Optional, Callable
 import logging
+from typing import Any, Callable, Dict, Optional
+
+from ..core.constants import ResourceAccessLevel
+from ..core.errors import ConsentError, MCPError
+from ..core.protocol import ProtocolHandler
 from .resources import ResourceManager
 from .tools import ToolManager
-from ..core.protocol import ProtocolHandler
-from ..core.errors import MCPError, ConsentError
-from ..core.constants import ResourceAccessLevel
+
 
 class MCPServer:
     """

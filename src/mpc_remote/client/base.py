@@ -1,14 +1,15 @@
 """Base client implementation for Model Context Protocol"""
 
-from typing import Dict, Any, Optional, Callable
-import logging
-import uuid
 import asyncio
 import json
+import logging
+import uuid
+from typing import Any, Dict, Optional
 
-from ..core.errors import MCPError
 from ..core.constants import ToolType
+from ..core.errors import MCPError
 from ..version import PROTOCOL_VERSION
+
 
 class MCPClient:
     """
@@ -107,7 +108,7 @@ class MCPClient:
         except asyncio.TimeoutError:
             raise MCPError("Request timed out")
         except Exception as e:
-            raise MCPError(f"Request failed: {str(e)}")
+            raise MCPError(f"Request failed: {e!s}")
     
     async def get_capabilities(self, force_refresh: bool = False) -> Dict[str, Any]:
         """

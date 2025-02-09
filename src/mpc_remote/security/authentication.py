@@ -1,12 +1,11 @@
 """Authentication mechanisms for Model Context Protocol"""
 
-from typing import Dict, Any, Optional, Callable
 import hashlib
 import hmac
 import secrets
-import base64
-import json
 from enum import Enum, auto
+from typing import Any, Callable, Dict, Optional
+
 
 class AuthenticationMethod(Enum):
     """Supported authentication methods"""
