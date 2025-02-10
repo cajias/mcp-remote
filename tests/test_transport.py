@@ -5,7 +5,7 @@ import asyncio
 import pytest
 import zmq.asyncio
 
-from mpc_remote.transport.zmq import ZMQTransport
+from mpc_remote.transport.zmq_transport import ZMQTransport
 
 
 @pytest.mark.asyncio

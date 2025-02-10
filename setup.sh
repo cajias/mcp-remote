@@ -21,7 +21,7 @@ pip install --upgrade pip
 pip install -e .
 
 # Install development dependencies
-pip install pytest
+pip install -e ".[dev]"
 
 # Run tests
 pytest tests/
