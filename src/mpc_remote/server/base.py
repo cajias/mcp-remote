@@ -1,287 +1,167 @@
 """Base server implementation for Model Context Protocol"""
 
+import asyncio
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional, Type, TypeVar, get_type_hints
 
-from ..core.constants import ResourceAccessLevel
+from ..core.constants import ResourceAccessLevel, ToolType
 from ..core.errors import ConsentError, MCPError
-from ..core.protocol import ProtocolHandler
-from .resources import ResourceManager
-from .tools import ToolManager
+from ..core.protocol import ProtocolHandler, Resource, Tool
 
+T = TypeVar('T')
 
 class MCPServer:
-    """
-    Core server implementation for Model Context Protocol
+    """Core server implementation using decorators for registration"""
     
-    Integrates resource and tool management with core protocol handling
-    """
     def __init__(
-        self, 
+        self,
         name: Optional[str] = None,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
+        version: str = "1.0"
     ):
-        """
-        Initialize MCP server
-        
-        :param name: Optional server name
-        :param logger: Optional custom logger
-        """
-        # Logging setup
-        self.logger = logger or logging.getLogger('mcp.server')
-        
-        # Server identification
         self.name = name or "GenericMCPServer"
-        
-        # Core protocol handler
-        self.protocol_handler = ProtocolHandler()
-        
-        # Resource and tool management
-        self.resources = ResourceManager()
-        self.tools = ToolManager()
-        
-        # User consent and authentication callbacks
+        self.logger = logger or logging.getLogger('mcp.server')
+        self.protocol_handler = ProtocolHandler(version=version)
         self._consent_handler: Optional[Callable] = None
-        self._authentication_handler: Optional[Callable] = None
-    
-    def set_consent_handler(self, handler: Callable):
-        """
-        Set a custom consent handler
-        
-        :param handler: Callable to handle user consent
-        """
-        self._consent_handler = handler
-    
-    def set_authentication_handler(self, handler: Callable):
-        """
-        Set a custom authentication handler
-        
-        :param handler: Callable to handle user authentication
-        """
-        self._authentication_handler = handler
-    
-    def _check_user_consent(
-        self, 
-        resource_or_tool_name: str, 
-        is_tool: bool = False
-    ) -> bool:
-        """
-        Check user consent for a resource or tool
-        
-        :param resource_or_tool_name: Name of resource or tool
-        :param is_tool: Whether checking a tool or a resource
-        :return: Whether consent is granted
-        :raises ConsentError: If consent is not obtained
-        """
-        if not self._consent_handler:
-            return True
-        
-        try:
-            consent_granted = self._consent_handler(
-                resource_or_tool_name=resource_or_tool_name,
-                is_tool=is_tool
-            )
-            
-            if not consent_granted:
-                raise ConsentError(resource_or_tool_name)
-            
-            return True
-        except Exception as e:
-            self.logger.error(f"Consent check failed: {e}")
-            raise
-    
-    def _authenticate_user(self, user_context: Optional[Dict[str, Any]] = None) -> bool:
-        """
-        Authenticate user based on provided context
-        
-        :param user_context: User authentication context
-        :return: Whether authentication is successful
-        """
-        if not self._authentication_handler:
-            return True
-        
-        try:
-            return self._authentication_handler(user_context)
-        except Exception as e:
-            self.logger.error(f"Authentication failed: {e}")
-            return False
-    
-    def register_resource(
-        self, 
-        name: str, 
-        resource_type: str,
-        access_level: ResourceAccessLevel = ResourceAccessLevel.READ_ONLY,
+        self._auth_handler: Optional[Callable] = None
+        self._tools: Dict[str, Tool] = {}
+        self._resources: Dict[str, Resource] = {}
+
+    def tool(
+        self,
+        name: Optional[str] = None,
         description: Optional[str] = None,
+        tool_type: ToolType = ToolType.FUNCTION,
+        params_schema: Optional[Dict[str, Any]] = None,
+        consent_required: bool = False
+    ) -> Callable[[T], T]:
+        """
+        Register a function as an MCP tool
+        
+        @server.tool("add")
+        async def add(a: int, b: int) -> int:
+            return a + b
+        """
+        def decorator(func: T) -> T:
+            tool_name = name or func.__name__
+            tool = Tool(
+                name=tool_name,
+                implementation=func,
+                description=description or func.__doc__,
+                type=tool_type,
+                params_schema=params_schema or self._infer_params_schema(func),
+                consent_required=consent_required
+            )
+            self._tools[tool_name] = tool
+            self.protocol_handler.register_tool(tool)
+            return func
+        return decorator
+
+    def resource(
+        self,
+        name: Optional[str] = None,
+        resource_type: Optional[str] = None,
+        description: Optional[str] = None,
+        access_level: ResourceAccessLevel = ResourceAccessLevel.READ_ONLY,
+        consent_required: bool = False,
         metadata: Optional[Dict[str, Any]] = None
-    ):
+    ) -> Callable[[Type[T]], Type[T]]:
         """
-        Register a new resource
+        Register a class as an MCP resource
         
-        :param name: Unique resource name
-        :param resource_type: Type of resource
-        :param access_level: Access permissions for the resource
-        :param description: Human-readable description
-        :param metadata: Additional resource metadata
+        @server.resource("user_data")
+        class UserData:
+            def __init__(self):
+                self.data = {}
         """
-        self.resources.register_resource(
-            name=name,
-            resource_type=resource_type,
-            access_level=access_level,
-            description=description,
-            metadata=metadata
-        )
-        
-        # Also register with protocol handler
-        from ..core.protocol import Resource
-        protocol_resource = Resource(
-            name=name,
-            type=resource_type,
-            access_level=access_level,
-            description=description,
-            metadata=metadata or {}
-        )
-        self.protocol_handler.register_resource(protocol_resource)
-    
-    def register_tool(
+        def decorator(cls: Type[T]) -> Type[T]:
+            resource_name = name or cls.__name__
+            resource = Resource(
+                name=resource_name,
+                type=resource_type or cls.__name__.lower(),
+                description=description or cls.__doc__,
+                access_level=access_level,
+                consent_required=consent_required,
+                metadata=metadata or {}
+            )
+            self._resources[resource_name] = resource
+            self.protocol_handler.register_resource(resource)
+            return cls
+        return decorator
+
+    def _infer_params_schema(self, func: Callable) -> Dict[str, Any]:
+        """Infer JSON schema from function type hints"""
+        hints = get_type_hints(func)
+        return {
+            "type": "object",
+            "properties": {
+                name: {"type": self._type_to_json_type(typ)}
+                for name, typ in hints.items()
+                if name != "return"
+            },
+            "required": [
+                name for name, _ in hints.items()
+                if name != "return"
+            ]
+        }
+
+    def _type_to_json_type(self, typ: Type) -> str:
+        """Convert Python type to JSON schema type"""
+        type_map = {
+            int: "integer",
+            float: "number",
+            str: "string",
+            bool: "boolean",
+            list: "array",
+            dict: "object"
+        }
+        return type_map.get(typ, "string")
+
+    def set_consent_handler(self, handler: Callable):
+        """Set custom consent handler"""
+        self._consent_handler = handler
+
+    def set_auth_handler(self, handler: Callable):
+        """Set custom authentication handler"""
+        self._auth_handler = handler
+
+    async def execute_tool(
         self,
         name: str,
-        implementation: Callable,
-        tool_type: ToolType = ToolType.FUNCTION,
-        description: Optional[str] = None,
-        params_schema: Optional[Dict[str, Any]] = None
-    ):
-        """
-        Register a new tool
-        
-        :param name: Unique tool name
-        :param implementation: Tool implementation function
-        :param tool_type: Type of tool
-        :param description: Human-readable description
-        :param params_schema: JSON schema for parameter validation
-        """
-        self.tools.register_tool(
-            name=name,
-            implementation=implementation,
-            tool_type=tool_type,
-            description=description,
-            params_schema=params_schema
-        )
-        
-        # Also register with protocol handler
-        from ..core.protocol import Tool
-        protocol_tool = Tool(
-            name=name,
-            implementation=implementation,
-            type=tool_type,
-            description=description,
-            params_schema=params_schema
-        )
-        self.protocol_handler.register_tool(protocol_tool)
-    
-    def execute_tool(
-        self, 
-        name: str, 
         params: Dict[str, Any],
-        user_context: Optional[Dict[str, Any]] = None
+        context: Optional[Dict[str, Any]] = None
     ) -> Any:
-        """
-        Execute a registered tool
-        
-        :param name: Tool name to execute
-        :param params: Tool parameters
-        :param user_context: Optional user authentication context
-        :return: Tool execution result
-        :raises MCPError: If execution fails
-        """
-        # Authenticate user
-        if not self._authenticate_user(user_context):
+        """Execute a registered tool"""
+        if self._auth_handler and not await self._auth_handler(context):
             raise MCPError("Authentication failed")
-        
-        # Check consent
-        self._check_user_consent(name, is_tool=True)
-        
-        # Execute tool
-        return self.tools.execute_tool(name, params, user_context)
-    
+
+        tool = self._tools.get(name)
+        if not tool:
+            raise MCPError(f"Tool '{name}' not found")
+
+        if tool.consent_required and self._consent_handler:
+            if not await self._consent_handler(name, context):
+                raise ConsentError(f"Consent denied for tool '{name}'")
+
+        # Handle both sync and async implementations
+        try:
+            if asyncio.iscoroutinefunction(tool.implementation):
+                return await tool.implementation(**params)
+            return tool.implementation(**params)
+        except Exception as e:
+            raise MCPError(f"Tool execution failed: {str(e)}")
+
     def get_capabilities(self) -> Dict[str, Any]:
-        """
-        Retrieve server capabilities
-        
-        :return: Comprehensive server capabilities
-        """
+        """Get server capabilities"""
         return {
             "server_name": self.name,
             "protocol_version": self.protocol_handler._version,
             "resources": {
                 name: resource.to_dict() 
-                for name, resource in self.resources.list_resources().items()
+                for name, resource in self._resources.items()
             },
             "tools": {
                 name: tool.to_dict() 
-                for name, tool in self.tools.list_tools().items()
+                for name, tool in self._tools.items()
             }
         }
-    
-    def handle_request(
-        self, 
-        method: str, 
-        params: Dict[str, Any],
-        user_context: Optional[Dict[str, Any]] = None
-    ) -> Any:
-        """
-        Handle a generic protocol request
-        
-        :param method: Request method
-        :param params: Request parameters
-        :param user_context: Optional user authentication context
-        :return: Request execution result
-        """
-        # Special method handling
-        if method == 'capabilities':
-            return self.get_capabilities()
-        
-        # Tool execution
-        return self.execute_tool(method, params, user_context)
-
-# Example usage demonstrating server setup
-def example_server_setup():
-    """
-    Example of setting up an MCP server with resources and tools
-    """
-    # Create server
-    server = MCPServer(name="ExampleMCPServer")
-    
-    # Example resource
-    server.register_resource(
-        name="system_info",
-        resource_type="metadata",
-        description="Basic system information",
-        access_level=ResourceAccessLevel.READ_ONLY
-    )
-    
-    # Example tool: simple calculator
-    def add(a: float, b: float) -> float:
-        return a + b
-    
-    server.register_tool(
-        name="add",
-        implementation=add,
-        description="Simple addition operation",
-        tool_type=ToolType.FUNCTION
-    )
-    
-    # Optional: Set custom consent handler
-    def consent_handler(resource_or_tool_name: str, is_tool: bool) -> bool:
-        # Example implementation
-        print(f"Consent requested for: {resource_or_tool_name}")
-        return True
-    
-    server.set_consent_handler(consent_handler)
-    
-    return server
-
-# Main execution
-if __name__ == "__main__":
-    # Create and demonstrate server capabilities
-    server = example_server_setup()
-    print(json.dumps(server.get_capabilities(), indent=2))

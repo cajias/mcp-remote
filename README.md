@@ -4,7 +4,8 @@ A ZeroMQ-based implementation of the Model Context Protocol optimized for perfor
 
 ## Key Features
 
-- **Flexible Deployment**: Run components in same process, same machine, or distributed
+- **Decorator-Based API**: Simple and intuitive tool/resource registration
+- **Type Inference**: Automatic parameter schema generation from type hints
 - **Enhanced Security**: Built-in authentication and access control
 - **High Performance**: Native ZMQ messaging with configurable patterns
 - **Robust Error Handling**: Comprehensive error management and recovery
@@ -18,7 +19,7 @@ graph TB
     Auth --> Protocol[Protocol Handler]
     Protocol --> Resources[Resource Manager]
     Protocol --> Tools[Tool Manager]
-    
+
     subgraph "Deployment Options"
         P1[Same Process] -.-> |inproc://| Transport
         P2[Same Machine] -.-> |ipc://| Transport
@@ -39,127 +40,72 @@ pip install -e ".[dev]"
 ### Basic Usage
 
 ```python
-from mpc_remote import ZMQTransport, ProtocolHandler
+from mpc_remote import MCPServer
 
-# Server setup
-server = ZMQTransport("tcp://*:5555", connection_type="bind")
-handler = ProtocolHandler()
+# Create server
+server = MCPServer()
 
-# Register tools/resources
-handler.register_tool(Tool(
-    name="analyze",
-    implementation=analyze_func
-))
+# Register tools with decorators
+@server.tool("add")
+async def add(a: int, b: int) -> int:
+    return a + b
+
+# Register resources with decorators
+@server.resource("user_data")
+class UserData:
+    def __init__(self):
+        self.data = {}
+
+    async def get(self, user_id: str) -> dict:
+        return self.data.get(user_id, {})
+
+# Configure security (optional)
+@server.tool("analyze", consent_required=True)
+async def analyze_data(data: dict) -> dict:
+    return await process_data(data)
 
 # Client usage
-client = ZMQTransport("tcp://localhost:5555")
-result = await client.send_request({
-    "method": "execute_tool",
-    "params": {"tool": "analyze", "data": {...}}
-})
+client = MCPClient("tcp://localhost:5555")
+result = await client.execute_tool("add", {"a": 5, "b": 3})
 ```
 
-## Deployment Patterns
+## Advanced Features
 
-### Same Process
-Best for:
-- Development and testing
-- Resource-constrained environments
-- Single-process applications
-
+### Type Hints and Schema Generation
 ```python
-# Server and client in same process
-transport = ZMQTransport("inproc://app")
+@server.tool("process")
+async def process_data(
+    input_data: List[float],
+    threshold: float = 0.5,
+    mode: str = "default"
+) -> Dict[str, Any]:
+    """
+    Process input data with given parameters.
+    Schema is automatically generated from type hints.
+    """
+    return {"result": await analyze(input_data, threshold, mode)}
 ```
 
-### Same Machine
-Best for:
-- Process isolation
-- System services
-- Security boundaries
-
+### Consent and Authentication
 ```python
-# IPC communication
-transport = ZMQTransport("ipc:///tmp/app")
+# Add consent handler
+server.set_consent_handler(async def(tool_name, context):
+    return await check_user_consent(context["user_id"], tool_name))
+
+# Add authentication
+server.set_auth_handler(async def(context):
+    return await verify_token(context.get("token")))
 ```
 
-### Distributed
-Best for:
-- Cloud deployments
-- Microservices
-- Scale-out architectures
-
+### Resource Access Control
 ```python
-# Network communication
-transport = ZMQTransport("tcp://server:5555")
-```
-
-## Security
-
-### Authentication
-```python
-from mpc_remote.security import AuthProvider
-
-class JWTAuthProvider(AuthProvider):
-    async def verify_token(self, token: str) -> bool:
-        return jwt.verify(token, SECRET_KEY)
-    
-    async def check_tool_permission(self, token: str, tool: str) -> bool:
-        claims = jwt.decode(token, SECRET_KEY)
-        return tool in claims["permissions"]
-
-handler = AuthenticatedProtocolHandler(JWTAuthProvider())
-```
-
-### Access Control
-```python
-# Resource with required permissions
-resource = Resource(
-    name="sensitive_data",
+@server.resource(
+    "sensitive_data",
     access_level=ResourceAccessLevel.READ_WRITE,
     consent_required=True
 )
-
-# Tool with access control
-tool = Tool(
-    name="analyze",
-    implementation=analyze_func,
-    consent_required=True
-)
-```
-
-## Performance Tuning
-
-### Socket Options
-```python
-transport = ZMQTransport(
-    "tcp://server:5555",
-    recv_timeout=30.0,
-    send_timeout=30.0,
-    hwm=1000  # High water mark for message queuing
-)
-```
-
-### Connection Management
-```python
-# Configure connection behavior
-transport = ZMQTransport(
-    "tcp://server:5555",
-    reconnect_interval=1000,  # milliseconds
-    max_retries=3
-)
-```
-
-## Error Handling
-
-```python
-try:
-    result = await client.send_request({...})
-except ZMQTransportError as e:
-    if e.code == MCPErrorCode.UNAUTHORIZED:
-        # Handle auth error
-    elif e.code == MCPErrorCode.TIMEOUT:
-        # Handle timeout
+class SensitiveData:
+    """Access-controlled resource example"""
 ```
 
 ## Development

@@ -1,106 +1,100 @@
 """Tests for core protocol components"""
 
 import asyncio
-
 import pytest
 
 from mpc_remote.core.constants import ResourceAccessLevel, ToolType
 from mpc_remote.core.errors import MCPError
-from mpc_remote.core.protocol import ProtocolHandler, Resource, Tool
-
+from mpc_remote.server.base import MCPServer
 
 @pytest.mark.asyncio
-async def test_protocol_handler_initialization():
-    """Test basic protocol handler initialization and version handling"""
-    handler = ProtocolHandler(version="1.0")
-    capabilities = handler.get_capabilities()
+async def test_server_initialization():
+    """Test basic server initialization"""
+    server = MCPServer(name="TestServer")
+    capabilities = server.get_capabilities()
     assert capabilities["protocol_version"] == "1.0"
     assert isinstance(capabilities["resources"], dict)
     assert isinstance(capabilities["tools"], dict)
 
 @pytest.mark.asyncio
-async def test_resource_registration():
-    """Test resource registration and capability reporting"""
-    handler = ProtocolHandler()
+async def test_resource_decorator():
+    """Test resource registration via decorator"""
+    server = MCPServer()
     
-    resource = Resource(
+    @server.resource(
         name="test_resource",
-        type="document",
+        resource_type="document",
         description="A test resource",
         access_level=ResourceAccessLevel.READ_ONLY
     )
-    handler.register_resource(resource)
+    class TestResource:
+        def __init__(self):
+            self.data = {}
     
-    capabilities = handler.get_capabilities()
+    capabilities = server.get_capabilities()
     assert "test_resource" in capabilities["resources"]
-    
     resource_info = capabilities["resources"]["test_resource"]
     assert resource_info["type"] == "document"
     assert resource_info["access_level"] == "read-only"
 
 @pytest.mark.asyncio
-async def test_sync_tool_execution():
-    """Test execution of synchronous tools"""
-    handler = ProtocolHandler()
+async def test_sync_tool_decorator():
+    """Test synchronous tool registration via decorator"""
+    server = MCPServer()
     
+    @server.tool(name="add")
     def add_numbers(a: int, b: int) -> int:
         return a + b
     
-    tool = Tool(
-        name="add",
-        implementation=add_numbers,
-        description="Add two numbers",
-        type=ToolType.FUNCTION
-    )
-    handler.register_tool(tool)
-    
-    result = await handler.execute_tool("add", {"a": 5, "b": 3})
+    result = await server.execute_tool("add", {"a": 5, "b": 3})
     assert result == 8
 
 @pytest.mark.asyncio
-async def test_async_tool_execution():
-    """Test execution of asynchronous tools"""
-    handler = ProtocolHandler()
+async def test_async_tool_decorator():
+    """Test asynchronous tool registration via decorator"""
+    server = MCPServer()
     
+    @server.tool(name="async_add")
     async def delayed_add(a: int, b: int) -> int:
-        await asyncio.sleep(0.1)  # Simulate async operation
+        await asyncio.sleep(0.1)
         return a + b
     
-    tool = Tool(
-        name="async_add",
-        implementation=delayed_add,
-        description="Add two numbers asynchronously",
-        type=ToolType.FUNCTION
-    )
-    handler.register_tool(tool)
-    
-    result = await handler.execute_tool("async_add", {"a": 5, "b": 3})
+    result = await server.execute_tool("async_add", {"a": 5, "b": 3})
     assert result == 8
 
 @pytest.mark.asyncio
 async def test_tool_error_handling():
-    """Test proper error handling during tool execution"""
-    handler = ProtocolHandler()
+    """Test error handling with decorated tools"""
+    server = MCPServer()
     
+    @server.tool(name="failing_tool")
     def failing_tool():
         raise ValueError("Expected test error")
     
-    tool = Tool(
-        name="failing_tool",
-        implementation=failing_tool,
-        type=ToolType.FUNCTION
-    )
-    handler.register_tool(tool)
-    
     with pytest.raises(MCPError) as exc_info:
-        await handler.execute_tool("failing_tool", {})
+        await server.execute_tool("failing_tool", {})
     assert "Expected test error" in str(exc_info.value)
 
 @pytest.mark.asyncio
 async def test_missing_tool_error():
-    """Test error handling when requesting non-existent tool"""
-    handler = ProtocolHandler()
+    """Test error handling for non-existent tools"""
+    server = MCPServer()
     
     with pytest.raises(MCPError) as exc_info:
-        await handler.execute_tool("nonexistent_tool", {})
+        await server.execute_tool("nonexistent_tool", {})
     assert "not found" in str(exc_info.value)
+
+@pytest.mark.asyncio
+async def test_params_schema_inference():
+    """Test automatic parameter schema inference"""
+    server = MCPServer()
+    
+    @server.tool(name="typed_tool")
+    def typed_tool(x: int, y: float, name: str) -> bool:
+        return True
+    
+    capabilities = server.get_capabilities()
+    tool_info = capabilities["tools"]["typed_tool"]
+    assert tool_info["params_schema"]["properties"]["x"]["type"] == "integer"
+    assert tool_info["params_schema"]["properties"]["y"]["type"] == "number"
+    assert tool_info["params_schema"]["properties"]["name"]["type"] == "string"
