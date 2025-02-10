@@ -1,8 +1,10 @@
 """Tests for JSON-RPC 2.0 Implementation"""
 
-import pytest
 import json
-from mpc_remote.core.jsonrpc import JSONRPCProtocol, JSONRPCError
+
+import pytest
+
+from mpc_remote.core.jsonrpc import JSONRPCError, JSONRPCProtocol
 
 
 class TestJSONRPCProtocol:

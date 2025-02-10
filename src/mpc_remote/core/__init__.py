@@ -1,3 +1,3 @@
 # Core module for MPC Remote
-from .jsonrpc import JSONRPCProtocol, JSONRPCError
-from .protocol import ProtocolHandler, Tool
+from .jsonrpc import JSONRPCError, JSONRPCProtocol  # noqa: F401
+from .protocol import ProtocolHandler, Tool  # noqa: F401

@@ -1,1 +1,1 @@
-from .base import MCPServer, MCPError
+from .base import MCPError, MCPServer  # noqa: F401

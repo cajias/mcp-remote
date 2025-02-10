@@ -1,6 +1,8 @@
 """Error types for MPC Remote"""
 
 from enum import IntEnum
+from typing import Optional
+
 
 class MCPErrorCode(IntEnum):
     """Error codes for MPC Remote"""
@@ -16,41 +18,41 @@ class MCPErrorCode(IntEnum):
 
 class MCPError(Exception):
     """Base exception for MPC Remote errors"""
-    def __init__(self, message: str, code: MCPErrorCode = None, details: dict = None):
+    def __init__(self, message: str, code: MCPErrorCode = None, details: Optional[dict] = None) -> None:
         super().__init__(message)
         self.code = code or MCPErrorCode.INTERNAL_ERROR
         self.details = details or {}
 
 class ConsentError(MCPError):
     """Error raised when consent is required but not granted"""
-    def __init__(self, resource_name: str):
+    def __init__(self, resource_name: str) -> None:
         super().__init__(
-            f"Consent required for '{resource_name}'", 
+            f"Consent required for '{resource_name}'",
             code=MCPErrorCode.CONSENT_REQUIRED
         )
         self.resource_name = resource_name
 
 class ValidationError(MCPError):
     """Error raised when input validation fails"""
-    def __init__(self, message: str, details: dict = None):
+    def __init__(self, message: str, details: Optional[dict] = None) -> None:
         super().__init__(
-            message, 
-            code=MCPErrorCode.VALIDATION_ERROR, 
+            message,
+            code=MCPErrorCode.VALIDATION_ERROR,
             details=details
         )
 
 class ConnectionError(MCPError):
     """Error raised when connection to server fails"""
-    def __init__(self, message: str):
+    def __init__(self, message: str) -> None:
         super().__init__(
-            message, 
+            message,
             code=MCPErrorCode.CONNECTION_ERROR
         )
 
 class AuthenticationError(MCPError):
     """Error raised when authentication fails"""
-    def __init__(self, message: str = "Authentication failed"):
+    def __init__(self, message: str = "Authentication failed") -> None:
         super().__init__(
-            message, 
+            message,
             code=MCPErrorCode.AUTHENTICATION_ERROR
         )

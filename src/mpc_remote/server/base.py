@@ -12,13 +12,13 @@ T = TypeVar('T')
 
 class MCPServer:
     """Core server implementation using decorators for registration"""
-    
+
     def __init__(
         self,
         name: Optional[str] = None,
         logger: Optional[logging.Logger] = None,
         version: str = "1.0"
-    ):
+    )-> None:
         self.name = name or "GenericMCPServer"
         self.logger = logger or logging.getLogger('mcp.server')
         self.protocol_handler = ProtocolHandler(version=version)
@@ -37,7 +37,7 @@ class MCPServer:
     ) -> Callable[[T], T]:
         """
         Register a function as an MCP tool
-        
+
         @server.tool("add")
         async def add(a: int, b: int) -> int:
             return a + b
@@ -68,7 +68,7 @@ class MCPServer:
     ) -> Callable[[Type[T]], Type[T]]:
         """
         Register a class as an MCP resource
-        
+
         @server.resource("user_data")
         class UserData:
             def __init__(self):
@@ -117,11 +117,11 @@ class MCPServer:
         }
         return type_map.get(typ, "string")
 
-    def set_consent_handler(self, handler: Callable):
+    def set_consent_handler(self, handler: Callable) -> None:
         """Set custom consent handler"""
         self._consent_handler = handler
 
-    def set_auth_handler(self, handler: Callable):
+    def set_auth_handler(self, handler: Callable)-> None:
         """Set custom authentication handler"""
         self._auth_handler = handler
 
@@ -149,7 +149,7 @@ class MCPServer:
                 return await tool.implementation(**params)
             return tool.implementation(**params)
         except Exception as e:
-            raise MCPError(f"Tool execution failed: {str(e)}")
+            raise MCPError(f"Tool execution failed: {e!s}") from e
 
     def get_capabilities(self) -> Dict[str, Any]:
         """Get server capabilities"""
@@ -157,11 +157,11 @@ class MCPServer:
             "server_name": self.name,
             "protocol_version": self.protocol_handler._version,
             "resources": {
-                name: resource.to_dict() 
+                name: resource.to_dict()
                 for name, resource in self._resources.items()
             },
             "tools": {
-                name: tool.to_dict() 
+                name: tool.to_dict()
                 for name, tool in self._tools.items()
             }
         }

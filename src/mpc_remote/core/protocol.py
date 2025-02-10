@@ -12,7 +12,7 @@ from .errors import MCPError
 class Resource:
     """
     Represents a resource in the Model Context Protocol
-    
+
     Resources are entities that can be accessed and manipulated through the protocol.
     Each resource has a defined access level and can optionally require consent
     for operations.
@@ -35,7 +35,7 @@ class Resource:
 class Tool:
     """
     Represents a tool in the Model Context Protocol
-    
+
     Tools are executable components that can process data or perform operations.
     Each tool defines how it should be executed and what parameters it accepts.
     The implementation can be either synchronous or asynchronous.
@@ -62,46 +62,46 @@ class Tool:
 class ProtocolHandler:
     """
     Core handler for Model Context Protocol communications
-    
+
     This class manages protocol-level interactions by:
     - Maintaining registries of available resources and tools
     - Handling tool execution with proper error management
     - Providing capability discovery
     - Ensuring version compatibility
     """
-    def __init__(self, version: str = "1.0"):
+    def __init__(self, version: str = "1.0") -> None:
         """
         Initialize protocol handler
-        
+
         Args:
             version: Protocol version to use, defaults to "1.0"
         """
         self._version = version
         self._resources: Dict[str, Resource] = {}
         self._tools: Dict[str, Tool] = {}
-    
+
     def register_resource(self, resource: Resource) -> None:
         """
         Register a resource in the protocol
-        
+
         Args:
             resource: Resource to register
         """
         self._resources[resource.name] = resource
-    
+
     def register_tool(self, tool: Tool) -> None:
         """
         Register a tool in the protocol
-        
+
         Args:
             tool: Tool to register
         """
         self._tools[tool.name] = tool
-    
+
     def get_capabilities(self) -> Dict[str, Any]:
         """
         Retrieve current protocol capabilities
-        
+
         Returns:
             Dictionary containing:
             - protocol_version: Current protocol version
@@ -111,45 +111,45 @@ class ProtocolHandler:
         return {
             "protocol_version": self._version,
             "resources": {
-                name: resource.to_dict() 
+                name: resource.to_dict()
                 for name, resource in self._resources.items()
             },
             "tools": {
-                name: tool.to_dict() 
+                name: tool.to_dict()
                 for name, tool in self._tools.items()
             }
         }
-    
+
     async def execute_tool(self, tool_name: str, params: Dict[str, Any]) -> Any:
         """
         Execute a registered tool
-        
+
         This method handles both synchronous and asynchronous tool implementations,
         automatically detecting the appropriate execution mode.
-        
+
         Args:
             tool_name: Name of the tool to execute
             params: Parameters to pass to the tool
-            
+
         Returns:
             Tool execution result
-            
+
         Raises:
             MCPError: If tool is not found or execution fails
         """
         if tool_name not in self._tools:
             raise MCPError(f"Tool '{tool_name}' not found")
-        
+
         tool = self._tools[tool_name]
-        
+
         try:
             # Handle both async and sync implementations
             if asyncio.iscoroutinefunction(tool.implementation):
                 return await tool.implementation(**params)
             return tool.implementation(**params)
-            
+
         except Exception as e:
             raise MCPError(
                 f"Tool execution failed: {e!s}",
                 details={"tool": tool_name, "params": params}
-            )
+            ) from e

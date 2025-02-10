@@ -1,8 +1,8 @@
 """Tests for mpc_remote package."""
 
 import pytest
-from mpc_remote import __version__
 
+from mpc_remote import __version__
 from mpc_remote.core.protocol import ProtocolHandler
 from mpc_remote.transport.zmq_transport import ZMQTransport
 

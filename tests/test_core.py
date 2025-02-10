@@ -1,11 +1,13 @@
 """Tests for core protocol components"""
 
 import asyncio
+
 import pytest
 
-from mpc_remote.core.constants import ResourceAccessLevel, ToolType
+from mpc_remote.core.constants import ResourceAccessLevel
 from mpc_remote.core.errors import MCPError
 from mpc_remote.server.base import MCPServer
+
 
 @pytest.mark.asyncio
 async def test_server_initialization():

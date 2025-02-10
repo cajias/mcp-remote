@@ -37,7 +37,7 @@ async def transport_pair():
 def mock_auth_provider():
     """Provide a mock authentication provider for testing."""
     class MockAuthProvider(AuthProvider):
-        def __init__(self):
+        def __init__(self) -> None:
             self.valid_tokens = {"valid_token", "admin_token"}
             self.admin_tokens = {"admin_token"}
 

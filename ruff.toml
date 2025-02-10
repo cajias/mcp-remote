@@ -1,7 +1,7 @@
 # Ruff configuration
-line-length = 88
+line-length = 120
 target-version = "py38"
-extend-exclude = ["docs/*"]
+extend-exclude = ["docs/*", "tests/*"]
 
 [lint]
 select = [
@@ -27,5 +27,6 @@ line-ending = "auto"
 convention = "google"
 
 [lint.per-file-ignores]
+"src/*" = ["ANN401"]
 "tests/*" = ["S101", "ANN201"]
 "src/mpc_remote/__init__.py" = ["F401"]

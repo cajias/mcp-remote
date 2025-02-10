@@ -1,8 +1,9 @@
 """Decorator-based server implementation for Model Context Protocol"""
 
 import functools
-from typing import Any, Callable, Dict, Optional, Type, TypeVar, Protocol, Union
-from typing_extensions import Concatenate, ParamSpec
+from typing import Any, Callable, Dict, Optional, Protocol, Type, TypeVar
+
+from typing_extensions import ParamSpec
 
 from ..core.constants import ResourceAccessLevel, ToolType
 from ..core.protocol import Resource, Tool
