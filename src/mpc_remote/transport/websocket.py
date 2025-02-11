@@ -1,156 +1,66 @@
-"""WebSocket transport implementation for Model Context Protocol"""
+"""WebSocket transport implementation."""
 
-import asyncio
 import json
-from typing import Any, Dict, Optional
-
+import ssl
+from typing import Optional
 import websockets
-from websockets.client import ClientConnection
 
+from .base import BaseTransport
+from ..core.jsonrpc import JSONRPCMessage
 
-class WebSocketTransport:
+class WebSocketTransport(BaseTransport):
     """
-    WebSocket transport for Model Context Protocol communications
-
-    Supports full-duplex WebSocket communication
+    WebSocket transport implementation supporting ws:// and wss:// URLs.
     """
+    
     def __init__(
         self,
-        endpoint: str,
-        reconnect: bool = True,
-        max_reconnect_attempts: int = 3
-    )->None:
-        """
-        Initialize WebSocket transport
-
-        :param endpoint: WebSocket server endpoint
-        :param reconnect: Enable automatic reconnection
-        :param max_reconnect_attempts: Maximum reconnection attempts
-        """
-        self.endpoint = endpoint
-        self.websocket = None
-        self.reconnect = reconnect
-        self.max_reconnect_attempts = max_reconnect_attempts
-
-        # Request tracking
-        self._pending_requests = {}
-
-    async def _connect(self)->ClientConnection:
-        """
-        Establish WebSocket connection
-
-        :return: WebSocket connection
-        """
-        attempts = 0
-        while attempts < self.max_reconnect_attempts:
-            try:
-                self.websocket = await websockets.connect(self.endpoint)
-                return self.websocket
-            except Exception as e:
-                attempts += 1
-                if attempts >= self.max_reconnect_attempts:
-                    raise ConnectionError(f"Failed to connect after {attempts} attempts: {e}") from e
-                await asyncio.sleep(2 ** attempts)  # Exponential backoff
-
-    async def send_request(self, request: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Send a JSON-RPC request via WebSocket
-
-        :param request: JSON-RPC request dictionary
-        :return: JSON-RPC response
-        """
-        # Ensure connection
-        if not self.websocket:
-            await self._connect()
-
-        # Prepare request
-        request_json = json.dumps(request)
-
+        url: str,
+        ssl: Optional[ssl.SSLContext] = None,
+        **kwargs
+    ) -> None:
+        super().__init__()
+        self.url = url
+        self.ssl = ssl
+        self.ws = None
+        self.ws_options = kwargs
+    
+    async def initialize(self) -> None:
+        """Initialize WebSocket connection."""
+        if self.is_connected:
+            return
+            
+        # Connect with SSL if needed
+        self.ws = await websockets.connect(
+            self.url,
+            ssl=self.ssl,
+            **self.ws_options
+        )
+        self._connected = True
+    
+    async def read_message(self) -> JSONRPCMessage:
+        """Read JSON-RPC message from WebSocket."""
+        if not self.is_connected:
+            raise RuntimeError("Transport not connected")
+            
         try:
-            # Send request
-            await self.websocket.send(request_json)
-
-            # Wait for response
-            response_json = await self.websocket.recv()
-            return json.loads(response_json)
-
-        except websockets.ConnectionClosed:
-            if self.reconnect:
-                # Attempt reconnection
-                await self._connect()
-                return await self.send_request(request)
-            raise
+            raw_message = await self.ws.recv()
+            message_dict = json.loads(raw_message)
+            return JSONRPCMessage.parse_obj(message_dict)
         except Exception as e:
-            raise RuntimeError(f"WebSocket request failed: {e}") from e
-
-    async def listen(self, message_handler: Optional[callable] = None) -> None:
-        """
-        Listen for incoming messages
-
-        :param message_handler: Optional callback for processing messages
-        """
-        if not self.websocket:
-            await self._connect()
-
-        try:
-            while True:
-                try:
-                    message = await self.websocket.recv()
-                    parsed_message = json.loads(message)
-
-                    if message_handler:
-                        await message_handler(parsed_message)
-                except websockets.ConnectionClosed:
-                    if self.reconnect:
-                        await self._connect()
-                    else:
-                        break
-        except Exception as e:
-            print(f"WebSocket listening error: {e}")
-
-    async def close(self)->None:
-        """
-        Close WebSocket connection
-        """
-        if self.websocket:
-            await self.websocket.close()
-            self.websocket = None
-
-# Example usage
-async def example_websocket_transport()->None:
-    """
-    Demonstrate WebSocket transport usage
-    """
-    transport = WebSocketTransport('ws://localhost:8765')
-
-    # Example request
-    request = {
-        "jsonrpc": "2.0",
-        "method": "add",
-        "params": {"a": 5, "b": 3},
-        "id": "example-request"
-    }
-
-    try:
-        # Message handler for async messages
-        async def handle_message(message) -> None:  # noqa: ANN001
-            print("Received message:", message)
-
-        # Start listening in background
-        listen_task = asyncio.create_task(transport.listen(handle_message))  # noqa: RUF006, F841
-
-        # Send request
-        response = await transport.send_request(request)
-        print("Response:", response)
-
-        # Wait a bit to receive potential async messages
-        await asyncio.sleep(1)
-
-    except Exception as e:
-        print(f"Error: {e}")
-    finally:
-        await transport.close()
-
-# Main execution
-if __name__ == "__main__":
-    asyncio.run(example_websocket_transport())
+            raise ValueError(f"Invalid message format: {e}")
+    
+    async def write_message(self, message: JSONRPCMessage) -> None:
+        """Write JSON-RPC message to WebSocket."""
+        if not self.is_connected:
+            raise RuntimeError("Transport not connected")
+            
+        content = json.dumps(message.dict(exclude_none=True))
+        await self.ws.send(content)
+    
+    async def close(self) -> None:
+        """Close WebSocket connection."""
+        if self.ws:
+            await self.ws.close()
+            self.ws = None
+        self._connected = False

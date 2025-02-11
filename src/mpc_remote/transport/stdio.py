@@ -1,162 +1,101 @@
-from typing import AsyncGenerator, Union, Optional
-import anyio
-from anyio import Stream
-from .buffer import MessageBuffer, BackpressureManager
+"""Standard IO transport implementation matching canonical SDK."""
 
-class StreamCommunicator:
+import sys
+import json
+from typing import Any, Dict, Optional
+
+from .base import BaseTransport
+from ..core.jsonrpc import JSONRPCMessage
+
+class StdIOTransport(BaseTransport):
     """
-    Enhanced stream communicator with buffer management and backpressure
+    Standard IO transport implementation.
+    Matches behavior of canonical SDK for compatibility.
     """
-    def __init__(
-        self,
-        stream: Stream,
-        max_buffer_size: int = 1024 * 1024,  # 1MB default
-        chunk_size: int = 4096  # 4KB chunks
-    ):
-        self.stream = stream
-        self._buffer = MessageBuffer(max_buffer_size)
-        self._backpressure = BackpressureManager(max_buffer_size * 0.8)  # 80% threshold
-        self._chunk_size = chunk_size
-        self._closed = False
-
-    async def read_message(self) -> AsyncGenerator[bytes, None]:
-        """
-        Read messages using AnyIO stream semantics with backpressure support
-        """
-        try:
-            while not self._closed:
-                # Check backpressure before reading
-                await self._backpressure.check_backpressure(self._buffer.size)
-                
-                # Read chunk
-                chunk = await self.stream.receive(self._chunk_size)
-                if not chunk:
-                    break
-
-                # Write to buffer
-                if not self._buffer.write(chunk):
-                    # Buffer is full, apply backpressure
-                    continue
-
-                # Check for message boundaries
-                if self._is_message_complete(chunk):
-                    self._buffer.mark_message_boundary()
-                    
-                    # Read complete message
-                    while message := self._buffer.read():
-                        # Release backpressure if buffer is now below threshold
-                        self._backpressure.release_backpressure(self._buffer.size)
-                        yield message
-
-        except Exception as e:
-            # Log error and close stream
-            print(f"Error in read_message: {e}")
-            await self.close()
-            raise
-
-    async def write_message(self, message: Union[str, bytes]) -> None:
-        """
-        Write messages with proper encoding and chunking
-        """
-        try:
-            if isinstance(message, str):
-                message = message.encode('utf-8')
-
-            # Split message into chunks if needed
-            for i in range(0, len(message), self._chunk_size):
-                chunk = message[i:i + self._chunk_size]
-                
-                # Check backpressure before sending
-                await self._backpressure.check_backpressure(len(chunk))
-                
-                # Send chunk
-                await self.stream.send(chunk)
-
-        except Exception as e:
-            print(f"Error in write_message: {e}")
-            await self.close()
-            raise
-
-    def _is_message_complete(self, chunk: bytes) -> bool:
-        """
-        Check if we have a complete message
-        Override this method for different message framing protocols
-        """
-        # Default implementation checks for newline
-        return b'\n' in chunk
-
-    async def close(self) -> None:
-        """
-        Clean up resources
-        """
-        if not self._closed:
-            self._closed = True
-            try:
-                await self.stream.aclose()
-            except Exception as e:
-                print(f"Error closing stream: {e}")
-
-class StdioTransport:
-    """
-    Implementation of stdio-based transport using StreamCommunicator
-    """
-    def __init__(
-        self,
-        max_buffer_size: int = 1024 * 1024,
-        chunk_size: int = 4096
-    ):
-        self.stdin_stream: Optional[Stream] = None
-        self.stdout_stream: Optional[Stream] = None
-        self.communicator: Optional[StreamCommunicator] = None
-        self._max_buffer_size = max_buffer_size
-        self._chunk_size = chunk_size
-
+    
+    def __init__(self) -> None:
+        super().__init__()
+        self._initialized = False
+    
     async def initialize(self) -> None:
-        """
-        Initialize stdio streams with AnyIO
-        """
-        try:
-            # Create memory streams for testing/mocking
-            self.stdin_stream = await anyio.streams.create_memory_object_stream(
-                max_buffer_size=self._max_buffer_size
-            )
-            self.stdout_stream = await anyio.streams.create_memory_object_stream(
-                max_buffer_size=self._max_buffer_size
-            )
+        """Initialize stdio transport."""
+        if self._initialized:
+            return
             
-            # Initialize communicator with configured parameters
-            self.communicator = StreamCommunicator(
-                self.stdout_stream,
-                max_buffer_size=self._max_buffer_size,
-                chunk_size=self._chunk_size
-            )
-        except Exception as e:
-            print(f"Error initializing transport: {e}")
-            raise
-
-    async def send(self, message: Union[str, bytes]) -> None:
-        """
-        Send a message through stdout
-        """
-        if self.communicator:
-            await self.communicator.write_message(message)
-        else:
+        # Configure stdin/stdout for binary mode if needed
+        if hasattr(sys.stdin, 'buffer'):
+            sys.stdin = sys.stdin.buffer
+        if hasattr(sys.stdout, 'buffer'):
+            sys.stdout = sys.stdout.buffer
+            
+        self._initialized = True
+        self._connected = True
+    
+    async def read_message(self) -> JSONRPCMessage:
+        """Read JSON-RPC message from stdin."""
+        if not self._initialized:
             raise RuntimeError("Transport not initialized")
-
-    async def receive(self) -> AsyncGenerator[bytes, None]:
-        """
-        Receive messages from stdin with backpressure support
-        """
-        if self.communicator:
-            async for message in self.communicator.read_message():
-                yield message
-        else:
+            
+        # Read content length
+        header = await self._read_line()
+        if not header.startswith(b"Content-Length: "):
+            raise ValueError("Invalid header format")
+            
+        content_length = int(header.split(b": ")[1])
+        
+        # Skip empty line
+        empty_line = await self._read_line()
+        if empty_line != b"":
+            raise ValueError("Expected empty line after header")
+        
+        # Read message content
+        content = await self._read_exactly(content_length)
+        message_dict = json.loads(content.decode('utf-8'))
+        
+        return JSONRPCMessage.parse_obj(message_dict)
+    
+    async def write_message(self, message: JSONRPCMessage) -> None:
+        """Write JSON-RPC message to stdout."""
+        if not self._initialized:
             raise RuntimeError("Transport not initialized")
-
+            
+        # Serialize message
+        content = json.dumps(message.dict(exclude_none=True))
+        content_bytes = content.encode('utf-8')
+        
+        # Write header
+        header = f"Content-Length: {len(content_bytes)}\r\n\r\n"
+        sys.stdout.buffer.write(header.encode('ascii'))
+        
+        # Write content
+        sys.stdout.buffer.write(content_bytes)
+        sys.stdout.buffer.flush()
+    
     async def close(self) -> None:
-        """
-        Clean up resources
-        """
-        if self.communicator:
-            await self.communicator.close()
-            self.communicator = None
+        """Close stdio transport."""
+        self._connected = False
+        self._initialized = False
+    
+    async def _read_line(self) -> bytes:
+        """Read a line from stdin."""
+        result = bytearray()
+        while True:
+            c = sys.stdin.buffer.read(1)
+            if c == b'\r':
+                c2 = sys.stdin.buffer.read(1)
+                if c2 == b'\n':
+                    break
+                result.extend(c)
+                result.extend(c2)
+            elif c == b'\n':
+                break
+            else:
+                result.extend(c)
+        return bytes(result)
+    
+    async def _read_exactly(self, n: int) -> bytes:
+        """Read exactly n bytes from stdin."""
+        result = sys.stdin.buffer.read(n)
+        if len(result) != n:
+            raise EOFError(f"Expected {n} bytes, got {len(result)}")
+        return result

@@ -1,5 +1,6 @@
 """Model Context Protocol Version Management"""
 
+__version__ = "0.1.0"  # This matches our pyproject.toml
 PROTOCOL_VERSION = "2024-11-05"
 SUPPORTED_VERSIONS = [PROTOCOL_VERSION]
 
