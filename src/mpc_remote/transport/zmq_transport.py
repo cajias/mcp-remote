@@ -28,7 +28,7 @@ class ZMQTransport:
         timeout: float = 5.0
     ) -> None:
         """Initialize ZMQ transport
-        
+
         Args:
             endpoint: ZMQ endpoint string (e.g., tcp://localhost:5555)
             connection_type: Either 'connect' or 'bind'

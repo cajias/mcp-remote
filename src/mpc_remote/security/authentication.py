@@ -1,31 +1,19 @@
 """Authentication mechanisms for Model Context Protocol"""
 
-import hashlib
-import hmac
-import secrets
-import time
-from enum import Enum, auto
 from typing import Any, Callable, Dict, Optional
 
-
-class AuthenticationMethod(Enum):
-    """Supported authentication methods"""
-    NONE = auto()
-    TOKEN = auto()
-    JWT = auto()
-    HMAC = auto()
-    PASSWORD = auto()
 
 class AuthenticationManager:
     """
     Manages authentication for Model Context Protocol
 
-    Provides flexible authentication mechanisms
+    Provides flexible authentication mechanisms by allowing
+    custom authentication callbacks to be registered with string keys.
     """
     def __init__(self) -> None:
         """Initialize authentication manager"""
         self._users: Dict[str, Dict[str, Any]] = {}
-        self._auth_methods: Dict[str, Callable] = {}
+        self._auth_methods: Dict[str, Callable[..., Dict[str, Any]]] = {}
 
     def register_user(
         self,
@@ -45,10 +33,15 @@ class AuthenticationManager:
             raise ValueError(f"User {username} already exists")
 
         # Generate salt and hash password
+        import hashlib
+        import hmac
+        import secrets
         salt = secrets.token_hex(16)
-        hashed_password = self._hash_password(password, salt) if password else None
+        hashed_password = (
+            hmac.new(salt.encode('utf-8'), password.encode('utf-8'), hashlib.sha256).hexdigest()
+            if password else None
+        )
 
-        # Create user record
         user_id = secrets.token_urlsafe(16)
         user_record = {
             'id': user_id,
@@ -58,94 +51,55 @@ class AuthenticationManager:
             'auth_data': auth_data or {},
             'active': True
         }
-
         self._users[username] = user_record
         return user_id
-
-    def _hash_password(self, password: str, salt: str) -> str:
-        """
-        Hash password using HMAC-SHA256
-
-        :param password: Plain text password
-        :param salt: Password salt
-        :return: Hashed password
-        """
-        return hmac.new(
-            salt.encode('utf-8'),
-            password.encode('utf-8'),
-            hashlib.sha256
-        ).hexdigest()
 
     def authenticate(
         self,
         username: str,
         password: Optional[str] = None,
         token: Optional[str] = None,
-        method: AuthenticationMethod = AuthenticationMethod.NONE
+        method: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Authenticate a user
+        Authenticate a user using the specified method.
 
-        :param username: Username
-        :param password: User password
-        :param token: Authentication token
-        :param method: Authentication method
-        :return: User authentication context
+        If a custom method is registered under `method`, it will be used.
+        Otherwise, default authentication is applied.
         """
         if username not in self._users:
             raise ValueError("User not found")
-
         user = self._users[username]
-
-        # Check user is active
         if not user.get('active', False):
             raise ValueError("User account is not active")
 
-        # Custom method authentication
-        if method in self._auth_methods:
-            return self._auth_methods[str(method)](
-                username=username,
-                password=password,
-                token=token,
-                user_record=user
-            )
-
-        # Default authentication methods
-        if method == AuthenticationMethod.NONE:
-            return user
-
-        if method == AuthenticationMethod.TOKEN:
-            # Validate token
-            if not token or token != user.get('token'):
-                raise ValueError("Invalid authentication token")
-            return user
-
-        if method == AuthenticationMethod.PASSWORD:
-            # Password authentication
-            if not password:
-                raise ValueError("Password required")
-
-            # Hash and compare password
-            hashed_input = self._hash_password(password, user['salt'])
-            if not hmac.compare_digest(hashed_input, user['password_hash']):
-                raise ValueError("Invalid password")
-
-            return user
-
-        raise ValueError(f"Unsupported authentication method: {method}")
+        # Use a custom method if provided
+        if method:
+            if method in self._auth_methods:
+                return self._auth_methods[method](
+                    username=username,
+                    password=password,
+                    token=token,
+                    user_record=user
+                )
+            else:
+                raise ValueError(f"No authentication method registered for '{method}'")
+        # Default: no authentication (or you can implement a default flow here)
+        return user
 
     def add_custom_auth_method(
         self,
-        method: AuthenticationMethod,
-        handler: Callable
-    )->None:
+        method_name: str,
+        handler: Callable[..., Dict[str, Any]]
+    ) -> None:
         """
-        Add a custom authentication method
+        Register a custom authentication method.
 
-        :param method: Authentication method
-        :param handler: Authentication handler function
+        :param method_name: A string identifier for the method (e.g. "cognito")
+        :param handler: A callback that takes username, password, token, and user_record,
+                        and returns an authenticated user context.
         """
-        self._auth_methods[str(method)] = handler
+        self._auth_methods[method_name] = handler
 
     def generate_token(
         self,
@@ -161,44 +115,11 @@ class AuthenticationManager:
         """
         if username not in self._users:
             raise ValueError("User not found")
-
-        # Generate secure token
+        import secrets
+        import time
         token = secrets.token_urlsafe(32)
-
-        # Update user record
         user = self._users[username]
         user['token'] = token
         if expiry:
             user['token_expiry'] = time.time() + expiry
-
         return token
-
-# Example usage
-def example_authentication()->None:
-    """Demonstrate authentication functionality"""
-    auth_manager = AuthenticationManager()
-
-    # Register a user
-    user_id = auth_manager.register_user(  # noqa: F841
-        username='example_user',
-        password='secure_password'  # noqa: S106
-    )
-
-    # Authenticate user
-    try:
-        user_context = auth_manager.authenticate(  # noqa: F841
-            username='example_user',
-            password='secure_password',  # noqa: S106
-            method=AuthenticationMethod.PASSWORD
-        )
-        print("Authentication successful")
-
-        # Generate token
-        token = auth_manager.generate_token('example_user')
-        print(f"Generated token: {token}")
-    except ValueError as e:
-        print(f"Authentication failed: {e}")
-
-# Main execution
-if __name__ == "__main__":
-    example_authentication()

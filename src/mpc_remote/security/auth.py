@@ -24,9 +24,7 @@ class AuthenticatedProtocolHandler(ProtocolHandler):
     def __init__(self, auth_provider: AuthProvider, **kwargs: Dict[str,Any]) ->None:
         """Initialize authenticated protocol handler"""
         if not isinstance(auth_provider, AuthProvider):
-            raise TypeError(
-                "auth_provider must implement AuthProvider protocol"
-            )
+            raise TypeError("auth_provider must implement AuthProvider protocol")
         super().__init__(**kwargs)
         self.auth_provider = auth_provider
 
