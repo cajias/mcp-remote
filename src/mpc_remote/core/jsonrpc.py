@@ -120,10 +120,7 @@ class JSONRPCProtocol:
             try:
                 message = json.loads(message)
             except json.JSONDecodeError as e:
-                raise ValidationError(
-                    f"Invalid JSON: {str(e)}", 
-                    JSONRPCMessage
-                ) from e
+                raise ValueError(f"Invalid JSON: {str(e)}")
 
         # Determine message type if not specified
         if expected_type is None:
@@ -132,10 +129,7 @@ class JSONRPCProtocol:
             elif 'result' in message or 'error' in message:
                 expected_type = JSONRPCResponse  # type: ignore
             else:
-                raise ValidationError(
-                    "Unable to determine message type", 
-                    JSONRPCMessage
-                )
+                raise ValueError("Unable to determine message type")
 
         # Validate and return
         return expected_type.model_validate(message)
