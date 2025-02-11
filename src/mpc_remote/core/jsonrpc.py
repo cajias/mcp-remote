@@ -1,25 +1,68 @@
-"""JSON-RPC 2.0 implementation for Model Context Protocol"""
-
+from __future__ import annotations
 import json
 import uuid
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional, Union, Type, TypeVar
 
+from pydantic import BaseModel, Field, model_validator, ValidationError
 
-class JSONRPCError(Exception):
-    """Base exception for JSON-RPC errors"""
-    def __init__(self, code: int, message: str, data: Optional[Any] = None) -> None:
-        self.code = code
-        self.message = message
-        self.data = data
-        super().__init__(f"JSON-RPC Error {code}: {message}")
+T = TypeVar('T', bound='JSONRPCMessage')
+
+class JSONRPCError(BaseModel):
+    """Structured JSON-RPC error representation"""
+    code: int
+    message: str
+    data: Optional[Any] = None
+
+    def __str__(self) -> str:
+        return f"JSON-RPC Error {self.code}: {self.message}"
+
+class JSONRPCMessage(BaseModel):
+    """Base JSON-RPC message model"""
+    jsonrpc: str = Field(default="2.0", alias="jsonrpc")
+
+    @model_validator(mode='before')
+    def validate_jsonrpc_version(cls, values):
+        """Ensure JSON-RPC version is 2.0"""
+        if not isinstance(values, dict):
+            return values
+        
+        version = values.get('jsonrpc', '2.0')
+        if version != '2.0':
+            raise ValueError(f"Unsupported JSON-RPC version: {version}")
+        
+        return values
+
+    def model_dump_json(self, **kwargs):
+        """Enhanced JSON dumping with aliases and exclusion of None"""
+        return super().model_dump_json(
+            by_alias=True, 
+            exclude_none=True, 
+            **kwargs
+        )
+
+class JSONRPCRequest(JSONRPCMessage):
+    """JSON-RPC request message"""
+    method: str
+    params: Optional[Union[Dict[str, Any], list]] = None
+    id: Union[str, int] = Field(default_factory=lambda: str(uuid.uuid4()))
+
+class JSONRPCResponse(JSONRPCMessage):
+    """JSON-RPC response message"""
+    result: Optional[Any] = None
+    error: Optional[JSONRPCError] = None
+    id: Optional[Union[str, int]] = None
+
+    @model_validator(mode='after')
+    def validate_result_or_error(self):
+        """Ensure either result or error is present"""
+        if self.result is None and self.error is None:
+            raise ValueError("Response must have either result or error")
+        return self
 
 class JSONRPCProtocol:
-    """
-    JSON-RPC 2.0 protocol handler
-
-    Manages message creation, parsing, and routing
-    """
-    # Standard JSON-RPC 2.0 error codes
+    """Advanced JSON-RPC 2.0 protocol handler"""
+    
+    # Standard JSON-RPC error codes
     ERROR_PARSE = -32700
     ERROR_INVALID_REQUEST = -32600
     ERROR_METHOD_NOT_FOUND = -32601
@@ -28,101 +71,81 @@ class JSONRPCProtocol:
 
     @classmethod
     def create_request(
-        cls,
-        method: str,
-        params: Optional[Union[Dict[str, Any], list]] = None,
+        cls, 
+        method: str, 
+        params: Optional[Union[Dict[str, Any], list]] = None, 
         id: Optional[Union[str, int]] = None
-    ) -> Dict[str, Any]:
-        """
-        Create a JSON-RPC 2.0 request
-
-        :param method: Method to invoke
-        :param params: Method parameters (optional)
-        :param id: Request identifier (optional)
-        :return: Formatted JSON-RPC request
-        """
-        request = {
-            "jsonrpc": "2.0",
-            "method": method
-        }
-
-        if params is not None:
-            request["params"] = params
-
-        # Generate ID if not provided
-        request["id"] = id or str(uuid.uuid4())
-
-        return request
+    ) -> JSONRPCRequest:
+        """Create a type-safe JSON-RPC request"""
+        return JSONRPCRequest(
+            method=method, 
+            params=params, 
+            id=id or str(uuid.uuid4())
+        )
 
     @classmethod
     def create_response(
-        cls,
-        result: Optional[Any] = None,
-        error: Optional[JSONRPCError] = None,
+        cls, 
+        result: Optional[Any] = None, 
+        error: Optional[Union[JSONRPCError, Dict[str, Any]]] = None, 
         id: Optional[Union[str, int]] = None
-    ) -> Dict[str, Any]:
-        """
-        Create a JSON-RPC 2.0 response
+    ) -> JSONRPCResponse:
+        """Create a type-safe JSON-RPC response"""
+        # Convert dict to JSONRPCError if needed
+        if isinstance(error, dict):
+            error = JSONRPCError(**error)
 
-        :param result: Successful result (mutually exclusive with error)
-        :param error: Error information
-        :param id: Request identifier
-        :return: Formatted JSON-RPC response
-        """
-        response = {"jsonrpc": "2.0"}
-
-        if error:
-            response["error"] = {
-                "code": error.code,
-                "message": error.message,
-                **({"data": error.data} if error.data else {})
-            }
-        elif result is not None:
-            response["result"] = result
-
-        if id is not None:
-            response["id"] = id
-
-        return response
+        return JSONRPCResponse(
+            result=result, 
+            error=error, 
+            id=id
+        )
 
     @classmethod
-    def parse_message(cls, message: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+    def parse_message(
+        cls, 
+        message: Union[str, Dict[str, Any]], 
+        expected_type: Optional[Type[T]] = None
+    ) -> T:
         """
-        Parse a JSON-RPC 2.0 message
-
-        :param message: JSON-RPC message (string or dict)
-        :return: Parsed message
-        :raises JSONRPCError: For invalid message formats
+        Parse and validate a JSON-RPC message
+        
+        :param message: Raw message to parse
+        :param expected_type: Optional expected message type
+        :return: Validated message
+        :raises ValidationError: If message is invalid
         """
-        # Ensure dictionary format
+        # Parse string to dict if needed
         if isinstance(message, str):
             try:
                 message = json.loads(message)
             except json.JSONDecodeError as e:
-                raise JSONRPCError( cls.ERROR_PARSE, "Parse error") from e
+                raise ValidationError(
+                    f"Invalid JSON: {str(e)}", 
+                    JSONRPCMessage
+                ) from e
 
-        # Validate JSON-RPC version
-        if message.get("jsonrpc") != "2.0":
-            raise JSONRPCError( cls.ERROR_INVALID_REQUEST,"Invalid JSON-RPC version")
+        # Determine message type if not specified
+        if expected_type is None:
+            if 'method' in message:
+                expected_type = JSONRPCRequest  # type: ignore
+            elif 'result' in message or 'error' in message:
+                expected_type = JSONRPCResponse  # type: ignore
+            else:
+                raise ValidationError(
+                    "Unable to determine message type", 
+                    JSONRPCMessage
+                )
 
-        return message
+        # Validate and return
+        return expected_type.model_validate(message)
 
     @classmethod
     def is_request(cls, message: Dict[str, Any]) -> bool:
-        """
-        Check if message is a JSON-RPC request
-
-        :param message: Parsed message
-        :return: True if request, False otherwise
-        """
+        """Check if message is a JSON-RPC request"""
         return "method" in message and "id" in message
 
     @classmethod
     def is_response(cls, message: Dict[str, Any]) -> bool:
-        """
-        Check if message is a JSON-RPC response
-
-        :param message: Parsed message
-        :return: True if response, False otherwise
-        """
+        """Check if message is a JSON-RPC response"""
         return ("result" in message or "error" in message) and "id" in message
