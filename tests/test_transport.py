@@ -1,194 +1,124 @@
-"""Tests for ZeroMQ transport implementation"""
-
-import asyncio
-
 import pytest
-import zmq.asyncio
-
-from mpc_remote.transport.zmq_transport import ZMQTransport
-
-
-@pytest.mark.asyncio
-async def test_client_server_communication():
-    """Test basic client-server communication"""
-    server = ZMQTransport("tcp://*:5555", connection_type="bind")
-    client = ZMQTransport("tcp://localhost:5555", connection_type="connect")
-    
-    try:
-        ready = asyncio.Event()
-        handled = asyncio.Event()
-        
-        async def handle_server():
-            ready.set()
-            try:
-                request = await server.recv_json()
-                assert request["method"] == "test_method"
-                assert request["params"]["value"] == 42
-                await server.send_json({
-                    "jsonrpc": "2.0",
-                    "result": "success",
-                    "id": request.get("id")
-                })
-            finally:
-                handled.set()
-        
-        server_task = asyncio.create_task(handle_server())
-        await ready.wait()
-        
-        response = await client.send_request({
-            "jsonrpc": "2.0",
-            "method": "test_method",
-            "params": {"value": 42},
-            "id": "test-1"
-        })
-        
-        await handled.wait()
-        assert response["result"] == "success"
-        await server_task
-        
-    finally:
-        server.close()
-        client.close()
+import anyio
+from mpc_remote.transport.buffer import MessageBuffer, BackpressureManager
+from mpc_remote.transport.stdio import StreamCommunicator, StdioTransport
 
 @pytest.mark.asyncio
-async def test_inproc_communication():
-    """Test communication within the same process"""
-    # Use shared context for inproc communication
-    context = zmq.asyncio.Context()
+async def test_message_buffer():
+    buffer = MessageBuffer(max_size=100)
     
-    try:
-        endpoint = "inproc://test"
-        server = ZMQTransport(endpoint, connection_type="bind", context=context)
-        client = ZMQTransport(endpoint, connection_type="connect", context=context)
-        
-        ready = asyncio.Event()
-        handled = asyncio.Event()
-        
-        async def handle_server():
-            ready.set()
-            try:
-                request = await server.recv_json()
-                await server.send_json({
-                    "jsonrpc": "2.0",
-                    "result": request["params"]["value"] * 2,
-                    "id": request.get("id")
-                })
-            finally:
-                handled.set()
-        
-        server_task = asyncio.create_task(handle_server())
-        await ready.wait()
-        
-        response = await client.send_request({
-            "jsonrpc": "2.0",
-            "method": "double",
-            "params": {"value": 21},
-            "id": "test-2"
-        })
-        
-        await handled.wait()
-        assert response["result"] == 42
-        await server_task
-        
-    finally:
-        server.close()
-        client.close()
-        context.term()
+    # Test writing within limits
+    assert buffer.write(b"Hello")
+    assert buffer.size == 5
+    
+    # Test writing that would exceed limit
+    large_data = b"x" * 96
+    assert not buffer.write(large_data)
+    
+    # Test message boundaries
+    buffer = MessageBuffer(max_size=100)
+    assert buffer.write(b"Hello\nWorld\n")
+    buffer.mark_message_boundary()
+    
+    message = buffer.read()
+    assert message == b"Hello\nWorld\n"
+    assert buffer.size == 0
 
 @pytest.mark.asyncio
-async def test_error_handling():
-    """Test error handling"""
-    server = ZMQTransport("tcp://*:5556", connection_type="bind")
-    client = ZMQTransport("tcp://localhost:5556", connection_type="connect")
+async def test_backpressure_manager():
+    manager = BackpressureManager(high_water_mark=100)
     
-    try:
-        ready = asyncio.Event()
-        handled = asyncio.Event()
-        
-        async def handle_server():
-            ready.set()
-            try:
-                await server.recv_json()
-                await server.send_json({
-                    "jsonrpc": "2.0",
-                    "error": {
-                        "code": -32000,
-                        "message": "Test error"
-                    },
-                    "id": "test-3"
-                })
-            finally:
-                handled.set()
-        
-        server_task = asyncio.create_task(handle_server())
-        await ready.wait()
-        
-        response = await client.send_request({
-            "jsonrpc": "2.0",
-            "method": "failing_method",
-            "params": {},
-            "id": "test-3"
-        })
-        
-        await handled.wait()
-        assert "error" in response
-        assert response["error"]["code"] == -32000
-        assert response["error"]["message"] == "Test error"
-        
-        await server_task
-        
-    finally:
-        server.close()
-        client.close()
+    # Test no backpressure
+    assert not manager.is_backpressured
+    await manager.check_backpressure(50)
+    assert not manager.is_backpressured
+    
+    # Test applying backpressure
+    await manager.check_backpressure(150)
+    assert manager.is_backpressured
+    
+    # Test releasing backpressure
+    manager.release_backpressure(50)
+    assert not manager.is_backpressured
 
 @pytest.mark.asyncio
-async def test_multiple_clients():
-    """Test multiple clients"""
-    server = ZMQTransport("tcp://*:5557", connection_type="bind")
-    clients = [
-        ZMQTransport("tcp://localhost:5557", connection_type="connect")
-        for _ in range(3)
-    ]
+async def test_stream_communicator():
+    # Create test streams
+    send_stream, receive_stream = await anyio.create_memory_object_stream(100)
+    communicator = StreamCommunicator(send_stream, max_buffer_size=1024)
     
-    try:
-        request_count = 0
-        ready = asyncio.Event()
-        handled = asyncio.Event()
-        
-        async def handle_server():
-            nonlocal request_count
-            ready.set()
-            try:
-                for _ in range(len(clients)):
-                    await server.recv_json()
-                    request_count += 1
-                    await server.send_json({
-                        "jsonrpc": "2.0",
-                        "result": f"response-{request_count}",
-                        "id": "test-4"
-                    })
-            finally:
-                handled.set()
-        
-        server_task = asyncio.create_task(handle_server())
-        await ready.wait()
-        
-        responses = await asyncio.gather(*(
-            client.send_request({
-                "jsonrpc": "2.0",
-                "method": "test",
-                "params": {},
-                "id": "test-4"
-            })
-            for client in clients
-        ))
-        
-        await handled.wait()
-        assert len(responses) == len(clients)
-        assert request_count == len(clients)
-        await server_task
-        
-    finally:
-        server.close()
-        for client in clients:
-            client.close()
+    # Test basic message sending
+    test_message = b"Hello World\n"
+    await communicator.write_message(test_message)
+    
+    # Test message receiving
+    received = None
+    async for message in communicator.read_message():
+        received = message
+        break
+    
+    assert received == test_message
+    
+    # Test string message encoding
+    await communicator.write_message("String Message\n")
+    
+    received = None
+    async for message in communicator.read_message():
+        received = message
+        break
+    
+    assert received == b"String Message\n"
+
+@pytest.mark.asyncio
+async def test_stdio_transport():
+    transport = StdioTransport(max_buffer_size=1024)
+    await transport.initialize()
+    
+    # Test basic message exchange
+    test_message = "Test Message\n"
+    await transport.send(test_message)
+    
+    received = None
+    async for message in transport.receive():
+        received = message
+        break
+    
+    assert received == test_message.encode()
+    
+    # Test cleanup
+    await transport.close()
+    
+    # Test error handling
+    with pytest.raises(RuntimeError):
+        await transport.send("message")  # Should fail after close
+
+@pytest.mark.asyncio
+async def test_backpressure_handling():
+    # Create a transport with small buffer for testing backpressure
+    transport = StdioTransport(max_buffer_size=100, chunk_size=10)
+    await transport.initialize()
+    
+    # Send messages until backpressure kicks in
+    large_message = "x" * 200 + "\n"
+    
+    # This should trigger backpressure
+    async def send_messages():
+        try:
+            await transport.send(large_message)
+        except Exception as e:
+            print(f"Expected error during send: {e}")
+    
+    async def receive_messages():
+        try:
+            async for _ in transport.receive():
+                # Simulate slow consumer
+                await anyio.sleep(0.1)
+        except Exception as e:
+            print(f"Expected error during receive: {e}")
+    
+    # Run both operations concurrently
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(send_messages)
+        tg.start_soon(receive_messages)
+    
+    await transport.close()

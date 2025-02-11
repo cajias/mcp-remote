@@ -8,7 +8,8 @@ from typing import Any, Dict, Optional
 
 from ..core.constants import ToolType
 from ..core.errors import MCPError
-from ..version import PROTOCOL_VERSION
+from ..version import PROTOCOL_VERSION, __version__
+from .session import MCPSession, ClientCapabilities
 
 
 class MCPClient:
@@ -44,7 +45,8 @@ class MCPClient:
         if transport_class:
             self._transport = transport_class(server_endpoint)
 
-        # Capabilities cache
+        # Session and capabilities management
+        self._session = MCPSession()
         self._capabilities: Optional[Dict[str, Any]] = None
 
         # Request tracking
@@ -121,6 +123,19 @@ class MCPClient:
         # Return cached capabilities if available and not forced
         if not force_refresh and self._capabilities:
             return self._capabilities
+
+        # Initialize session if needed
+        if not await self._session.initialize_version(__version__):
+            raise MCPError("Version negotiation failed")
+
+        # Setup client capabilities
+        client_caps = ClientCapabilities(
+            version=__version__,
+            features=["basic", "streaming", "async"],
+            extensions={}
+        )
+        if not await self._session.negotiate_capabilities(client_caps):
+            raise MCPError("Capability negotiation failed")
 
         # Fetch capabilities from server
         self._capabilities = await self._send_request("capabilities")
