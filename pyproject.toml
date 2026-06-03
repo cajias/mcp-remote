@@ -17,7 +17,8 @@ dependencies = [
     "jsonschema>=4.0.0",
     "cryptography>=3.4.0",
     "anyio>=4.0.0",
-    "pydantic>=2.0.0"
+    "pydantic>=2.0.0",
+    "websockets>=14.0"
 ]
 
 [project.optional-dependencies]
@@ -25,12 +26,18 @@ dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.1.0",
-    "ruff>=0.3.5"
+    "ruff>=0.3.5",
+    # Cognito authentication feature deps (exercised by tests/test_cognito_auth.py).
+    # These really belong in a dedicated `cognito` extra; placed here so CI can run the tests.
+    "boto3>=1.34.0",
+    "PyJWT>=2.8.0"
 ]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
-packages = ["mpc_remote"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.pytest.ini_options]
 # Configure asyncio handling
