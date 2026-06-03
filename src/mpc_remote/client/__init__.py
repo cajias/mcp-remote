@@ -6,11 +6,11 @@ import ssl
 from typing import Any, ClassVar
 from urllib.parse import urlparse
 
-from .protocol.session import MCPSession
-from .transport.base import MCPTransport
-from .transport.stdio import StdIOTransport
-from .transport.websocket import WebSocketTransport
-from .transport.zmq import ZMQSecurity, ZMQTransport
+from ..protocol.session import MCPSession
+from ..transport.base import MCPTransport
+from ..transport.stdio import StdIOTransport
+from ..transport.websocket import WebSocketTransport
+from ..transport.zmq import ZMQSecurity, ZMQTransport
 
 
 class MCPClient:
