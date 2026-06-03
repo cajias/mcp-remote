@@ -14,6 +14,7 @@ from ..core.errors import MCPError
 
 class ZMQTransportError(MCPError):
     """Transport-specific errors"""
+
     pass
 
 
@@ -21,11 +22,7 @@ class ZMQTransport:
     """ZeroMQ transport for Model Context Protocol communications"""
 
     def __init__(
-        self,
-        endpoint: str,
-        connection_type: str = 'connect',
-        context: zmq.Context | None = None,
-        timeout: float = 5.0
+        self, endpoint: str, connection_type: str = "connect", context: zmq.Context | None = None, timeout: float = 5.0
     ) -> None:
         """Initialize ZMQ transport
 
@@ -36,7 +33,7 @@ class ZMQTransport:
             timeout: Request timeout in seconds
         """
         self.context = context or zmq.asyncio.Context()
-        conn_type = zmq.REQ if connection_type == 'connect' else zmq.REP
+        conn_type = zmq.REQ if connection_type == "connect" else zmq.REP
         self.socket = self.context.socket(conn_type)
 
         # Configure socket
@@ -58,9 +55,9 @@ class ZMQTransport:
         self.socket.setsockopt(zmq.TCP_KEEPALIVE_IDLE, 60)
         self.socket.setsockopt(zmq.TCP_KEEPALIVE_INTVL, 30)
 
-        if connection_type == 'connect':
+        if connection_type == "connect":
             self.socket.connect(endpoint)
-        elif connection_type == 'bind':
+        elif connection_type == "bind":
             self.socket.bind(endpoint)
         else:
             raise ValueError("Connection type must be 'connect' or 'bind'")
@@ -73,14 +70,14 @@ class ZMQTransport:
         """Receive and parse JSON data"""
         try:
             data = await self.socket.recv()
-            return json.loads(data.decode('utf-8'))
+            return json.loads(data.decode("utf-8"))
         except zmq.error.Again as err:
             raise ZMQTransportError("Receive operation timed out") from err
 
     async def send_json(self, data: dict[str, Any]) -> None:
         """Encode and send JSON data"""
         try:
-            message = json.dumps(data).encode('utf-8')
+            message = json.dumps(data).encode("utf-8")
             await self.socket.send(message)
         except zmq.error.Again as err:
             raise ZMQTransportError("Send operation timed out") from err
@@ -90,11 +87,7 @@ class ZMQTransport:
         await self.send_json(request)
         return await self.recv_json()
 
-    async def send_request(
-        self,
-        request: dict[str, Any],
-        timeout: float | None = None
-    ) -> dict[str, Any]:
+    async def send_request(self, request: dict[str, Any], timeout: float | None = None) -> dict[str, Any]:
         """Send a JSON-RPC request via ZeroMQ"""
         if self._closed:
             raise ZMQTransportError("Transport is closed")
@@ -102,28 +95,18 @@ class ZMQTransport:
         timeout = timeout or self._timeout
 
         try:
-            return await asyncio.wait_for(
-                self._send_and_receive(request),
-                timeout=timeout
-            )
+            return await asyncio.wait_for(self._send_and_receive(request), timeout=timeout)
 
         except asyncio.TimeoutError as err:
             raise ZMQTransportError(
-                f"Request timed out after {timeout} seconds",
-                details={"endpoint": self.endpoint}
+                f"Request timed out after {timeout} seconds", details={"endpoint": self.endpoint}
             ) from err
 
         except zmq.ZMQError as err:
-            raise ZMQTransportError(
-                f"ZMQ error: {err!s}",
-                details={"errno": err.errno}
-            ) from err
+            raise ZMQTransportError(f"ZMQ error: {err!s}", details={"errno": err.errno}) from err
 
         except json.JSONDecodeError as err:
-            raise ZMQTransportError(
-                "Invalid JSON response",
-                details={"error": str(err)}
-            ) from err
+            raise ZMQTransportError("Invalid JSON response", details={"error": str(err)}) from err
 
     async def handle_request(self, handler: Callable) -> None:
         """Handle incoming requests (server mode)"""
@@ -141,12 +124,8 @@ class ZMQTransport:
                 # Send error response
                 error_response = {
                     "jsonrpc": "2.0",
-                    "error": {
-                        "code": -32000,
-                        "message": str(err),
-                        "data": {"type": type(err).__name__}
-                    },
-                    "id": request.get("id") if isinstance(request, dict) else None
+                    "error": {"code": -32000, "message": str(err), "data": {"type": type(err).__name__}},
+                    "id": request.get("id") if isinstance(request, dict) else None,
                 }
                 await self.send_json(error_response)
 
@@ -154,7 +133,7 @@ class ZMQTransport:
         """Close the transport"""
         if not self._closed:
             try:
-                if hasattr(self, 'socket'):
+                if hasattr(self, "socket"):
                     self.socket.close(linger=0)  # Immediate close
             finally:
                 self._closed = True

@@ -17,6 +17,7 @@ class Resource:
     Each resource has a defined access level and can optionally require consent
     for operations.
     """
+
     name: str
     type: str
     description: Optional[str] = None
@@ -28,8 +29,9 @@ class Resource:
     def to_dict(self) -> Dict[str, Any]:
         """Convert resource to dictionary representation"""
         resource_dict = asdict(self)
-        resource_dict['access_level'] = self.access_level.value
+        resource_dict["access_level"] = self.access_level.value
         return resource_dict
+
 
 @dataclass
 class Tool:
@@ -40,6 +42,7 @@ class Tool:
     Each tool defines how it should be executed and what parameters it accepts.
     The implementation can be either synchronous or asynchronous.
     """
+
     name: str
     implementation: Callable
     description: Optional[str] = None
@@ -51,13 +54,14 @@ class Tool:
     def to_dict(self) -> Dict[str, Any]:
         """Convert tool to dictionary representation, excluding the implementation"""
         return {
-            'name': self.name,
-            'description': self.description,
-            'type': self.type.name,
-            'params_schema': self.params_schema,
-            'consent_required': self.consent_required,
-            'version': self.version
+            "name": self.name,
+            "description": self.description,
+            "type": self.type.name,
+            "params_schema": self.params_schema,
+            "consent_required": self.consent_required,
+            "version": self.version,
         }
+
 
 class ProtocolHandler:
     """
@@ -69,6 +73,7 @@ class ProtocolHandler:
     - Providing capability discovery
     - Ensuring version compatibility
     """
+
     def __init__(self, version: str = "1.0") -> None:
         """
         Initialize protocol handler
@@ -110,14 +115,8 @@ class ProtocolHandler:
         """
         return {
             "protocol_version": self._version,
-            "resources": {
-                name: resource.to_dict()
-                for name, resource in self._resources.items()
-            },
-            "tools": {
-                name: tool.to_dict()
-                for name, tool in self._tools.items()
-            }
+            "resources": {name: resource.to_dict() for name, resource in self._resources.items()},
+            "tools": {name: tool.to_dict() for name, tool in self._tools.items()},
         }
 
     async def execute_tool(self, tool_name: str, params: Dict[str, Any]) -> Any:
@@ -149,7 +148,4 @@ class ProtocolHandler:
             return tool.implementation(**params)
 
         except Exception as e:
-            raise MCPError(
-                f"Tool execution failed: {e!s}",
-                details={"tool": tool_name, "params": params}
-            ) from e
+            raise MCPError(f"Tool execution failed: {e!s}", details={"tool": tool_name, "params": params}) from e

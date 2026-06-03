@@ -12,7 +12,8 @@ class ResourceManager:
 
     Handles resource registration, access control, and metadata management
     """
-    def __init__(self)->None:
+
+    def __init__(self) -> None:
         """Initialize resource manager"""
         self._resources: Dict[str, Resource] = {}
         self._access_hooks: Dict[str, Callable] = {}
@@ -24,8 +25,8 @@ class ResourceManager:
         access_level: ResourceAccessLevel = ResourceAccessLevel.READ_ONLY,
         description: Optional[str] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        access_hook: Optional[Callable] = None
-    )->None:
+        access_hook: Optional[Callable] = None,
+    ) -> None:
         """
         Register a new resource
 
@@ -40,11 +41,7 @@ class ResourceManager:
             raise ValueError(f"Resource '{name}' already exists")
 
         resource = Resource(
-            name=name,
-            type=resource_type,
-            access_level=access_level,
-            description=description,
-            metadata=metadata or {}
+            name=name, type=resource_type, access_level=access_level, description=description, metadata=metadata or {}
         )
 
         self._resources[name] = resource
@@ -52,7 +49,7 @@ class ResourceManager:
         if access_hook:
             self._access_hooks[name] = access_hook
 
-    def get_resource(self, name: str) -> 'Resource':
+    def get_resource(self, name: str) -> "Resource":
         """
         Retrieve a registered resource
 
@@ -62,7 +59,7 @@ class ResourceManager:
         """
         return self._resources[name]
 
-    def list_resources(self) -> Dict[str, 'Resource']:
+    def list_resources(self) -> Dict[str, "Resource"]:
         """
         List all registered resources
 
@@ -71,10 +68,7 @@ class ResourceManager:
         return dict(self._resources)
 
     def check_resource_access(
-        self,
-        name: str,
-        access_level: ResourceAccessLevel,
-        user_context: Optional[Dict[str, Any]] = None
+        self, name: str, access_level: ResourceAccessLevel, user_context: Optional[Dict[str, Any]] = None
     ) -> bool:
         """
         Check if access to a resource is permitted
@@ -95,13 +89,10 @@ class ResourceManager:
 
         # Check custom access hook if defined
         if name in self._access_hooks:
-            return self._access_hooks[name](
-                resource=resource,
-                access_level=access_level,
-                user_context=user_context
-            )
+            return self._access_hooks[name](resource=resource, access_level=access_level, user_context=user_context)
 
         return True
+
 
 @dataclass
 class Resource:
@@ -110,6 +101,7 @@ class Resource:
 
     Encapsulates resource metadata and access control information
     """
+
     name: str
     type: str
     access_level: ResourceAccessLevel = ResourceAccessLevel.READ_ONLY
@@ -123,9 +115,9 @@ class Resource:
         :return: Dictionary with resource details
         """
         return {
-            'name': self.name,
-            'type': self.type,
-            'access_level': self.access_level.value,
-            'description': self.description,
-            'metadata': self.metadata
+            "name": self.name,
+            "type": self.type,
+            "access_level": self.access_level.value,
+            "description": self.description,
+            "metadata": self.metadata,
         }

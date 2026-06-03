@@ -12,16 +12,19 @@ class VersionInfo(BaseModel):
     extensions: Optional[Dict[str, Any]] = None
     fallback_protocol_versions: List[str] = Field(default_factory=list)
 
+
 class VersionNegotiation(BaseModel):
     client_version: str
     supported_versions: Dict[str, VersionInfo]
     negotiated_protocol_version: Optional[str] = None
+
 
 class ClientCapabilities(BaseModel):
     version: str
     features: List[str]
     extensions: Optional[Dict[str, Any]] = None
     required_features: List[str] = Field(default_factory=list)
+
 
 class CapabilitySet(BaseModel):
     supported_features: List[str]
@@ -40,13 +43,13 @@ class CapabilitySet(BaseModel):
 
         # Determine active features based on requirements and support
         active = [f for f in client_caps.features if f in SUPPORTED_FEATURES]
-        
+
         return cls(
             supported_features=client_caps.features,
             active_features=active,
             required_features=all_required,
             extensions=client_caps.extensions or {},
-            protocol_version=protocol_version
+            protocol_version=protocol_version,
         )
 
     def is_compatible(self) -> bool:
@@ -57,14 +60,9 @@ class CapabilitySet(BaseModel):
         """Get list of required features that are not active"""
         return [req for req in self.required_features if req not in self.active_features]
 
-SUPPORTED_FEATURES = [
-    "basic",
-    "streaming",
-    "async",
-    "error_handling",
-    "backpressure",
-    "cancellation"
-]
+
+SUPPORTED_FEATURES = ["basic", "streaming", "async", "error_handling", "backpressure", "cancellation"]
+
 
 class MCPSession:
     def __init__(self) -> None:
@@ -73,7 +71,7 @@ class MCPSession:
             version=__version__,
             protocol_version="1.1",  # Updated to latest protocol version
             extensions={},
-            fallback_protocol_versions=["1.0"]
+            fallback_protocol_versions=["1.0"],
         )
         self.negotiated_protocol_version: Optional[str] = None
 
@@ -94,18 +92,14 @@ class MCPSession:
             versions[f"{__version__}-{protocol_ver}"] = version_info
         return versions
 
-    async def _negotiate_version(self, client_version: str, 
-                               supported_versions: Dict[str, VersionInfo]) -> bool:
+    async def _negotiate_version(self, client_version: str, supported_versions: Dict[str, VersionInfo]) -> bool:
         try:
             # Extract protocol version from client version
             client_protocol_version = client_version.split("-")[-1]
             server_protocol_version = self.version_info.protocol_version
 
             # Check protocol compatibility
-            is_compatible, fallback = is_protocol_compatible(
-                client_protocol_version,
-                server_protocol_version
-            )
+            is_compatible, fallback = is_protocol_compatible(client_protocol_version, server_protocol_version)
 
             if not is_compatible:
                 return False
@@ -116,7 +110,7 @@ class MCPSession:
             version_model = VersionNegotiation(
                 client_version=client_version,
                 supported_versions=supported_versions,
-                negotiated_protocol_version=self.negotiated_protocol_version
+                negotiated_protocol_version=self.negotiated_protocol_version,
             )
             return await self._verify_version_compatibility(version_model)
         except Exception as e:
@@ -138,15 +132,11 @@ class MCPSession:
         self.capabilities = await self._validate_capabilities(client_caps)
         return self.capabilities.is_compatible()
 
-    async def _validate_capabilities(self, 
-                                   client_caps: ClientCapabilities) -> CapabilitySet:
+    async def _validate_capabilities(self, client_caps: ClientCapabilities) -> CapabilitySet:
         if not self.negotiated_protocol_version:
             raise ValueError("Protocol version not negotiated")
-            
-        return CapabilitySet.from_client_caps(
-            client_caps,
-            self.negotiated_protocol_version
-        )
+
+        return CapabilitySet.from_client_caps(client_caps, self.negotiated_protocol_version)
 
     def get_active_features(self) -> List[str]:
         """Get list of currently active features"""
@@ -154,7 +144,4 @@ class MCPSession:
 
     def get_missing_requirements(self) -> List[str]:
         """Get list of required features that are not active"""
-        return (
-            self.capabilities.get_missing_requirements()
-            if self.capabilities else []
-        )
+        return self.capabilities.get_missing_requirements() if self.capabilities else []

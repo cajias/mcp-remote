@@ -2,4 +2,4 @@
 
 from .zmq_transport import ZMQTransport, ZMQTransportError
 
-__all__ = ['ZMQTransport', 'ZMQTransportError']
+__all__ = ["ZMQTransport", "ZMQTransportError"]
