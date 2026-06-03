@@ -24,7 +24,7 @@ class InitializeParams(BaseModel):
 class ProtocolAdapter:
     """Adapts between old and new protocol versions"""
     
-    def __init__(self):
+    def __init__(self) -> None:
         self.legacy_mode = False
         self.auth_enabled = False
 

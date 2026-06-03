@@ -35,7 +35,6 @@ def is_protocol_compatible(client_version: str, server_version: str) -> Tuple[bo
             return False, None
             
         compat_range = PROTOCOL_COMPATIBILITY[client_version]
-        client_ver = version.parse(client_version)
         server_ver = version.parse(server_version)
         min_ver = version.parse(compat_range.min_version)
         max_ver = version.parse(compat_range.max_version)

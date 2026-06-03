@@ -64,7 +64,7 @@ class LegacySession(MCPSession):
 
         except Exception as e:
             self._initialized.set()
-            raise RuntimeError(f"Initialization failed: {e}")
+            raise RuntimeError(f"Initialization failed: {e}") from e
 
     async def handle_request(
         self,

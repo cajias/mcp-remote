@@ -2,7 +2,7 @@
 
 import json
 import ssl
-from typing import Optional
+from typing import Any, Optional
 
 import websockets
 
@@ -19,7 +19,7 @@ class WebSocketTransport(BaseTransport):
         self,
         url: str,
         ssl: Optional[ssl.SSLContext] = None,
-        **kwargs
+        **kwargs: Any
     ) -> None:
         super().__init__()
         self.url = url
@@ -50,7 +50,7 @@ class WebSocketTransport(BaseTransport):
             message_dict = json.loads(raw_message)
             return JSONRPCMessage.parse_obj(message_dict)
         except Exception as e:
-            raise ValueError(f"Invalid message format: {e}")
+            raise ValueError(f"Invalid message format: {e}") from e
     
     async def write_message(self, message: JSONRPCMessage) -> None:
         """Write JSON-RPC message to WebSocket."""

@@ -1,7 +1,9 @@
 """MCP client with automatic transport selection."""
 
+from __future__ import annotations
+
 import ssl
-from typing import Optional
+from typing import Any, ClassVar
 from urllib.parse import urlparse
 
 from .protocol.session import MCPSession
@@ -30,7 +32,7 @@ class MCPClient:
             await session.initialize()
     """
     
-    TRANSPORT_SCHEMES = {
+    TRANSPORT_SCHEMES: ClassVar[dict[str, str]] = {
         'tcp': 'zmq',        # ZMQ TCP transport
         'ipc': 'zmq',        # ZMQ IPC transport
         'inproc': 'zmq',     # ZMQ in-process transport
@@ -42,11 +44,11 @@ class MCPClient:
     @classmethod
     async def connect(
         cls,
-        url: Optional[str] = None,
-        ssl_context: Optional[ssl.SSLContext] = None,
-        server_key: Optional[str] = None,
-        client_keys: Optional[ZMQSecurity] = None,
-        **kwargs
+        url: str | None = None,
+        ssl_context: ssl.SSLContext | None = None,
+        server_key: str | None = None,
+        client_keys: ZMQSecurity | None = None,
+        **kwargs: Any
     ) -> MCPSession:
         """
         Create an MCP session with appropriate transport based on URL.
@@ -76,11 +78,11 @@ class MCPClient:
     @classmethod
     async def _create_transport(
         cls,
-        url: Optional[str],
-        ssl_context: Optional[ssl.SSLContext] = None,
-        server_key: Optional[str] = None,
-        client_keys: Optional[ZMQSecurity] = None,
-        **kwargs
+        url: str | None,
+        ssl_context: ssl.SSLContext | None = None,
+        server_key: str | None = None,
+        client_keys: ZMQSecurity | None = None,
+        **kwargs: Any
     ) -> MCPTransport:
         """Create appropriate transport based on URL scheme."""
         if not url:

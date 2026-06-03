@@ -67,7 +67,7 @@ SUPPORTED_FEATURES = [
 ]
 
 class MCPSession:
-    def __init__(self):
+    def __init__(self) -> None:
         self.capabilities: Optional[CapabilitySet] = None
         self.version_info = VersionInfo(
             version=__version__,

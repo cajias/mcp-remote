@@ -1,7 +1,7 @@
 """ZeroMQ transport implementation with security features."""
 
 import json
-from typing import Optional
+from typing import Any, Optional
 
 import zmq
 import zmq.asyncio
@@ -63,7 +63,7 @@ class ZMQTransport(BaseTransport):
         socket_type: int = zmq.REQ,
         security: Optional[ZMQSecurity] = None,
         encoding: str = 'utf-8',
-        **kwargs
+        **kwargs: Any
     ) -> None:
         super().__init__()
         self.url = url
@@ -130,7 +130,7 @@ class ZMQTransport(BaseTransport):
             message_dict = json.loads(message_data.decode(self.encoding))
             return JSONRPCMessage.parse_obj(message_dict)
         except Exception as e:
-            raise ValueError(f"Invalid message format: {e}")
+            raise ValueError(f"Invalid message format: {e}") from e
     
     async def write_message(self, message: JSONRPCMessage) -> None:
         """Write JSON-RPC message to ZMQ socket."""
@@ -160,7 +160,7 @@ class ZMQTransport(BaseTransport):
         url: str,
         server_public_key: str,
         client_keys: Optional[ZMQSecurity] = None,
-        **kwargs
+        **kwargs: Any
     ) -> "ZMQTransport":
         """
         Create a secure ZMQ transport with CURVE authentication.

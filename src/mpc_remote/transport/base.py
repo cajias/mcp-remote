@@ -1,6 +1,9 @@
 """Base transport interface for MCP protocol."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from types import TracebackType
 from typing import Protocol
 
 from ..core.jsonrpc import JSONRPCMessage
@@ -40,14 +43,29 @@ class BaseTransport(ABC):
     
     def __init__(self) -> None:
         self._connected = False
-    
+
+    @abstractmethod
+    async def initialize(self) -> None:
+        """Initialize the transport connection."""
+        ...
+
+    @abstractmethod
+    async def close(self) -> None:
+        """Close the transport connection."""
+        ...
+
     @property
     def is_connected(self) -> bool:
         return self._connected
-    
-    async def __aenter__(self):
+
+    async def __aenter__(self) -> BaseTransport:
         await self.initialize()
         return self
-    
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         await self.close()
