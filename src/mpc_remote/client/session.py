@@ -1,11 +1,10 @@
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
+
 from ..version import __version__
-from .version_matrix import (
-    is_protocol_compatible,
-    REQUIRED_CAPABILITIES,
-    PROTOCOL_COMPATIBILITY
-)
+from .version_matrix import PROTOCOL_COMPATIBILITY, REQUIRED_CAPABILITIES, is_protocol_compatible
+
 
 class VersionInfo(BaseModel):
     version: str

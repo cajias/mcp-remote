@@ -1,13 +1,13 @@
 """Backward compatible session handling"""
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
+
 from anyio import Event
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
-from pydantic import BaseModel
 
+from ..client.session import ClientCapabilities, MCPSession
 from .adapter import ProtocolAdapter
-from ..client.session import MCPSession, ClientCapabilities
-from ..version import __version__
+
 
 class LegacySession(MCPSession):
     """Session handler with backward compatibility"""

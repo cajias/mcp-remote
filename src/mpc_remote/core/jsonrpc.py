@@ -1,9 +1,10 @@
 from __future__ import annotations
+
 import json
 import uuid
-from typing import Any, Dict, Optional, Union, Type, TypeVar
+from typing import Any, Dict, Optional, Type, TypeVar, Union
 
-from pydantic import BaseModel, Field, model_validator, ValidationError
+from pydantic import BaseModel, Field, model_validator
 
 T = TypeVar('T', bound='JSONRPCMessage')
 
@@ -120,7 +121,7 @@ class JSONRPCProtocol:
             try:
                 message = json.loads(message)
             except json.JSONDecodeError as e:
-                raise ValueError(f"Invalid JSON: {str(e)}")
+                raise ValueError(f"Invalid JSON: {e!s}")
 
         # Determine message type if not specified
         if expected_type is None:

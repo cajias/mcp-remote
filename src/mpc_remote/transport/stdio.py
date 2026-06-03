@@ -1,11 +1,11 @@
 """Standard IO transport implementation matching canonical SDK."""
 
-import sys
 import json
-from typing import Any, Dict, Optional
+import sys
 
-from .base import BaseTransport
 from ..core.jsonrpc import JSONRPCMessage
+from .base import BaseTransport
+
 
 class StdIOTransport(BaseTransport):
     """

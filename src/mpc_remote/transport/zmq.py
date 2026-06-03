@@ -1,15 +1,15 @@
 """ZeroMQ transport implementation with security features."""
 
 import json
-import os
-from typing import Optional, Dict, Any
+from typing import Optional
+
 import zmq
 import zmq.asyncio
-from zmq.auth.asyncio import AsyncioAuthenticator
-from zmq.utils.z85 import encode, decode
+from zmq.utils.z85 import decode
 
-from .base import BaseTransport
 from ..core.jsonrpc import JSONRPCMessage
+from .base import BaseTransport
+
 
 class ZMQSecurity:
     """ZMQ security configuration."""

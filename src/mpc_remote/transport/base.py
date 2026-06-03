@@ -1,9 +1,10 @@
 """Base transport interface for MCP protocol."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Protocol
+from typing import Protocol
 
 from ..core.jsonrpc import JSONRPCMessage
+
 
 class MCPTransport(Protocol):
     """Protocol interface for MCP transports."""

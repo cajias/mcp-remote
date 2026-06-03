@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 from ..core.constants import ToolType
 from ..core.errors import MCPError
 from ..version import PROTOCOL_VERSION, __version__
-from .session import MCPSession, ClientCapabilities
+from .session import ClientCapabilities, MCPSession
 
 
 class MCPClient:

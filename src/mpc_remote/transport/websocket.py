@@ -3,10 +3,12 @@
 import json
 import ssl
 from typing import Optional
+
 import websockets
 
-from .base import BaseTransport
 from ..core.jsonrpc import JSONRPCMessage
+from .base import BaseTransport
+
 
 class WebSocketTransport(BaseTransport):
     """

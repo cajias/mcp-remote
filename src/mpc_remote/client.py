@@ -1,14 +1,15 @@
 """MCP client with automatic transport selection."""
 
-from typing import Optional, Union
-from urllib.parse import urlparse
 import ssl
+from typing import Optional
+from urllib.parse import urlparse
 
 from .protocol.session import MCPSession
 from .transport.base import MCPTransport
-from .transport.zmq import ZMQTransport, ZMQSecurity
-from .transport.websocket import WebSocketTransport
 from .transport.stdio import StdIOTransport
+from .transport.websocket import WebSocketTransport
+from .transport.zmq import ZMQSecurity, ZMQTransport
+
 
 class MCPClient:
     """

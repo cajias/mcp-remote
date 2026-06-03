@@ -1,8 +1,9 @@
 """Backward compatibility adapters for MCP protocol"""
 
 from typing import Any, Dict, Optional, Tuple
+
 from pydantic import BaseModel
-from ..version import __version__
+
 
 class RootsCapability(BaseModel):
     """Original MCP roots capability"""

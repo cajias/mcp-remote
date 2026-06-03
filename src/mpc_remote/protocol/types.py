@@ -1,8 +1,10 @@
 """
 Model Context Protocol types, mirroring the canonical SDK.
 """
-from typing import Any, Dict, List, Optional, Union
-from pydantic import BaseModel, AnyUrl
+from typing import Any, Dict, Optional, Union
+
+from pydantic import AnyUrl, BaseModel
+
 
 class RootsCapability(BaseModel):
     """Capability for receiving roots/list_changed notifications"""
