@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ main, develop ]
 
+# Force UTF-8 mode so setuptools reads README.md (emoji/box-drawing banner) as
+# UTF-8 on Windows during the editable build; the default cp1252 locale codec
+# raises "UnicodeDecodeError: 'charmap' codec can't decode".
+env:
+  PYTHONUTF8: "1"
+
 jobs:
   test:
     runs-on: ${{ matrix.os }}
