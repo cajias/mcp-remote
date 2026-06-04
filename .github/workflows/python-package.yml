@@ -48,7 +48,10 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         file: ./coverage.xml
-        fail_ci_if_error: true
+        # The repo has no CODECOV_TOKEN secret configured; with fail_ci_if_error: true
+        # the upload step fails the whole test job even when pytest is green. Set to
+        # false so a missing/invalid token does not red the matrix.
+        fail_ci_if_error: false
 
   lint:
     runs-on: ubuntu-latest

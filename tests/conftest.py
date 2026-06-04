@@ -1,8 +1,16 @@
 """Pytest configuration and shared fixtures"""
 
 import asyncio
+import sys
 
 import pytest
+
+# On Windows, pyzmq's asyncio support requires a selector-based event loop. The
+# default ProactorEventLoop pulls in an optional `tornado` dependency, which
+# raises ModuleNotFoundError at teardown of the zmq integration tests. Forcing
+# the selector policy on Windows avoids that path (matches Linux/macOS behavior).
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 from mpc_remote.core.protocol import ProtocolHandler
 from mpc_remote.security.auth import AuthProvider
