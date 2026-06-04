@@ -9,7 +9,7 @@ from typing import Any, Dict, Optional
 from ..core.constants import ToolType
 from ..core.errors import MCPError
 from ..version import PROTOCOL_VERSION, __version__
-from .session import MCPSession, ClientCapabilities
+from .session import ClientCapabilities, MCPSession
 
 
 class MCPClient:
@@ -18,12 +18,13 @@ class MCPClient:
 
     Provides a flexible interface for interacting with MCP servers
     """
+
     def __init__(
         self,
         server_endpoint: str,
         transport_class: Optional[type] = None,
         protocol_version: str = PROTOCOL_VERSION,
-        logger: Optional[logging.Logger] = None
+        logger: Optional[logging.Logger] = None,
     ) -> None:
         """
         Initialize MCP client
@@ -34,7 +35,7 @@ class MCPClient:
         :param logger: Optional custom logger
         """
         # Logging setup
-        self.logger = logger or logging.getLogger('mcp.client')
+        self.logger = logger or logging.getLogger("mcp.client")
 
         # Server connection details
         self.server_endpoint = server_endpoint
@@ -62,10 +63,7 @@ class MCPClient:
         return str(uuid.uuid4())
 
     async def _send_request(
-        self,
-        method: str,
-        params: Optional[Dict[str, Any]] = None,
-        is_notification: bool = False
+        self, method: str, params: Optional[Dict[str, Any]] = None, is_notification: bool = False
     ) -> Any:
         """
         Send a JSON-RPC request to the server
@@ -94,17 +92,11 @@ class MCPClient:
             raise MCPError("No transport mechanism configured")
 
         try:
-            response = await asyncio.wait_for(
-                self._transport.send_request(request),
-                timeout=self._request_timeout
-            )
+            response = await asyncio.wait_for(self._transport.send_request(request), timeout=self._request_timeout)
 
             # Handle JSON-RPC response
             if "error" in response:
-                raise MCPError(
-                    response["error"].get("message", "Unknown error"),
-                    response["error"].get("code")
-                )
+                raise MCPError(response["error"].get("message", "Unknown error"), response["error"].get("code"))
 
             return response.get("result")
 
@@ -129,11 +121,7 @@ class MCPClient:
             raise MCPError("Version negotiation failed")
 
         # Setup client capabilities
-        client_caps = ClientCapabilities(
-            version=__version__,
-            features=["basic", "streaming", "async"],
-            extensions={}
-        )
+        client_caps = ClientCapabilities(version=__version__, features=["basic", "streaming", "async"], extensions={})
         if not await self._session.negotiate_capabilities(client_caps):
             raise MCPError("Capability negotiation failed")
 
@@ -142,10 +130,7 @@ class MCPClient:
         return self._capabilities
 
     async def execute_tool(
-        self,
-        tool_name: str,
-        params: Dict[str, Any],
-        tool_type: ToolType = ToolType.FUNCTION
+        self, tool_name: str, params: Dict[str, Any], tool_type: ToolType = ToolType.FUNCTION
     ) -> Any:
         """
         Execute a tool on the server
@@ -182,6 +167,7 @@ class MCPClient:
         """
         await self._send_request(method, params, is_notification=True)
 
+
 # Example usage
 async def example_client_usage() -> None:
     """
@@ -191,10 +177,7 @@ async def example_client_usage() -> None:
     from ..transport.zmq_transport import ZMQTransport
 
     # Create client
-    client = MCPClient(
-        server_endpoint="tcp://localhost:5555",
-        transport_class=ZMQTransport
-    )
+    client = MCPClient(server_endpoint="tcp://localhost:5555", transport_class=ZMQTransport)
 
     # Get server capabilities
     capabilities = await client.get_capabilities()
@@ -203,6 +186,7 @@ async def example_client_usage() -> None:
     # Execute a tool
     result = await client.execute_tool("add", {"a": 5, "b": 3})
     print("Tool execution result:", result)
+
 
 # Main execution
 if __name__ == "__main__":

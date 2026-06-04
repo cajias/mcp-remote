@@ -11,6 +11,7 @@ class MCPServerRunner:
     A simple server runner that integrates the MCPServer and the transport.
     It listens on the given endpoint until killed.
     """
+
     def __init__(self, server: MCPServer, endpoint: str) -> None:
         self.server = server
         self.endpoint = endpoint
@@ -34,12 +35,8 @@ class MCPServerRunner:
             # Return a JSON-RPC error response in case of failure.
             return {
                 "jsonrpc": "2.0",
-                "error": {
-                    "code": -32000,
-                    "message": str(e),
-                    "data": {"type": type(e).__name__}
-                },
-                "id": request_id
+                "error": {"code": -32000, "message": str(e), "data": {"type": type(e).__name__}},
+                "id": request_id,
             }
 
     async def _run(self) -> None:
@@ -72,6 +69,7 @@ class MCPServerRunner:
         """Stop the server when exiting an `async with` block."""
         await self.stop()
 
+
 # Example usage:
 async def _main() -> None:
     # Initialize the MCP server.
@@ -85,6 +83,7 @@ async def _main() -> None:
     # Use the server in an `async with` block.
     async with MCPServerRunner(server, "tcp://*:5555"):
         await asyncio.sleep(100)  # Keep the server running.
+
 
 # Run the server.
 if __name__ == "__main__":

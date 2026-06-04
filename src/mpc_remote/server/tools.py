@@ -15,7 +15,8 @@ class ToolManager:
 
     Handles tool registration, validation, and execution
     """
-    def __init__(self)->None:
+
+    def __init__(self) -> None:
         """Initialize tool manager"""
         self._tools: Dict[str, Tool] = {}
         self._tool_validators: Dict[str, Callable] = {}
@@ -27,8 +28,8 @@ class ToolManager:
         tool_type: ToolType = ToolType.FUNCTION,
         description: Optional[str] = None,
         params_schema: Optional[Dict[str, Any]] = None,
-        validator: Optional[Callable] = None
-    )->None:
+        validator: Optional[Callable] = None,
+    ) -> None:
         """
         Register a new tool
 
@@ -51,7 +52,7 @@ class ToolManager:
             implementation=implementation,
             type=tool_type,
             description=description,
-            params_schema=params_schema
+            params_schema=params_schema,
         )
 
         self._tools[name] = tool
@@ -96,7 +97,7 @@ class ToolManager:
 
         return schema
 
-    def get_tool(self, name: str) -> 'Tool':
+    def get_tool(self, name: str) -> "Tool":
         """
         Retrieve a registered tool
 
@@ -106,7 +107,7 @@ class ToolManager:
         """
         return self._tools[name]
 
-    def list_tools(self) -> Dict[str, 'Tool']:
+    def list_tools(self) -> Dict[str, "Tool"]:
         """
         List all registered tools
 
@@ -114,12 +115,7 @@ class ToolManager:
         """
         return dict(self._tools)
 
-    def execute_tool(
-        self,
-        name: str,
-        params: Dict[str, Any],
-        user_context: Optional[Dict[str, Any]] = None
-    ) -> Any:
+    def execute_tool(self, name: str, params: Dict[str, Any], user_context: Optional[Dict[str, Any]] = None) -> Any:
         """
         Execute a registered tool
 
@@ -139,11 +135,7 @@ class ToolManager:
 
         # Run custom validator if defined
         if name in self._tool_validators:
-            validation_result = self._tool_validators[name](
-                tool=tool,
-                params=params,
-                user_context=user_context
-            )
+            validation_result = self._tool_validators[name](tool=tool, params=params, user_context=user_context)
             if not validation_result:
                 raise MCPError(f"Tool '{name}' validation failed")
 
@@ -167,7 +159,7 @@ class ToolManager:
             raise MCPError(f"Tool execution failed: {e!s}") from e
 
     @staticmethod
-    def _validate_params(tool: 'Tool', params: Dict[str, Any]) -> None:
+    def _validate_params(tool: "Tool", params: Dict[str, Any]) -> None:
         """
         Validate parameters against tool's JSON schema
 
@@ -181,9 +173,11 @@ class ToolManager:
         try:
             # Basic JSON schema validation
             from jsonschema import validate
+
             validate(instance=params, schema=tool.params_schema)
         except Exception as e:
             raise MCPError(f"Parameter validation failed: {e!s}") from e
+
 
 @dataclass
 class Tool:
@@ -192,6 +186,7 @@ class Tool:
 
     Encapsulates tool metadata and implementation details
     """
+
     name: str
     implementation: Callable
     type: ToolType = ToolType.FUNCTION
@@ -206,9 +201,9 @@ class Tool:
         :return: Dictionary with tool details
         """
         return {
-            'name': self.name,
-            'type': self.type.name,
-            'description': self.description,
-            'params_schema': self.params_schema,
-            'metadata': self.metadata
+            "name": self.name,
+            "type": self.type.name,
+            "description": self.description,
+            "params_schema": self.params_schema,
+            "metadata": self.metadata,
         }

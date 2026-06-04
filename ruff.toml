@@ -30,3 +30,7 @@ convention = "google"
 "src/*" = ["ANN401"]
 "tests/*" = ["S101", "ANN201"]
 "src/mpc_remote/__init__.py" = ["F401"]
+# Protocol models mirror the MCP/JSON-RPC wire format, whose field names are
+# camelCase by spec (e.g. protocolVersion, clientInfo, listChanged). Renaming
+# them would break serialization, so suppress pep8-naming N815 here.
+"src/mpc_remote/protocol/*" = ["N815"]

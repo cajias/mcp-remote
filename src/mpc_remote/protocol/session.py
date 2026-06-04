@@ -1,22 +1,19 @@
 """Backward compatible session handling"""
 
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
+
 from anyio import Event
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
-from pydantic import BaseModel
 
+from ..client.session import ClientCapabilities, MCPSession
 from .adapter import ProtocolAdapter
-from ..client.session import MCPSession, ClientCapabilities
-from ..version import __version__
+
 
 class LegacySession(MCPSession):
     """Session handler with backward compatibility"""
 
     def __init__(
-        self,
-        read_stream: MemoryObjectReceiveStream,
-        write_stream: MemoryObjectSendStream,
-        auth_enabled: bool = False
+        self, read_stream: MemoryObjectReceiveStream, write_stream: MemoryObjectSendStream, auth_enabled: bool = False
     ) -> None:
         super().__init__()
         self._read_stream = read_stream
@@ -25,11 +22,7 @@ class LegacySession(MCPSession):
         self._adapter.auth_enabled = auth_enabled
         self._initialized = Event()
 
-    async def handle_initialize_request(
-        self,
-        method: str,
-        params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def handle_initialize_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Handle initialize request with backward compatibility
         """
@@ -39,15 +32,11 @@ class LegacySession(MCPSession):
 
             # Negotiate version using new mechanism
             if not await self.initialize_version(version):
-                raise RuntimeError(
-                    f"Version negotiation failed for version {version}"
-                )
+                raise RuntimeError(f"Version negotiation failed for version {version}")
 
             # Set up capabilities
             client_caps = ClientCapabilities(
-                version=version,
-                features=capabilities["features"],
-                extensions=capabilities.get("extensions", {})
+                version=version, features=capabilities["features"], extensions=capabilities.get("extensions", {})
             )
 
             if not await self.negotiate_capabilities(client_caps):
@@ -55,8 +44,7 @@ class LegacySession(MCPSession):
 
             # Create legacy-compatible response
             response = self._adapter.adapt_initialize_response(
-                self.negotiated_protocol_version or version,
-                capabilities
+                self.negotiated_protocol_version or version, capabilities
             )
 
             self._initialized.set()
@@ -64,13 +52,9 @@ class LegacySession(MCPSession):
 
         except Exception as e:
             self._initialized.set()
-            raise RuntimeError(f"Initialization failed: {e}")
+            raise RuntimeError(f"Initialization failed: {e}") from e
 
-    async def handle_request(
-        self,
-        method: str,
-        params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def handle_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Handle request with backward compatibility
         """
@@ -82,21 +66,13 @@ class LegacySession(MCPSession):
         response = await self._handle_request(method, adapted_params)
         return self._adapter.adapt_response(method, response)
 
-    async def _handle_request(
-        self,
-        method: str,
-        params: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    async def _handle_request(self, method: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Internal request handler - override in subclasses
         """
         raise NotImplementedError()
 
-    async def send_notification(
-        self,
-        method: str,
-        params: Optional[Dict[str, Any]] = None
-    ) -> None:
+    async def send_notification(self, method: str, params: Optional[Dict[str, Any]] = None) -> None:
         """
         Send notification with backward compatibility
         """
@@ -107,10 +83,7 @@ class LegacySession(MCPSession):
 
         await self._send_notification(method, params or {})
 
-    def _adapt_progress_notification(
-        self,
-        params: Optional[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+    def _adapt_progress_notification(self, params: Optional[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Adapt progress notification for legacy clients
         """
@@ -118,8 +91,4 @@ class LegacySession(MCPSession):
             return {}
 
         # Convert new progress format to old
-        return {
-            "progressToken": params.get("token"),
-            "progress": params.get("value", 0),
-            "total": params.get("total")
-        }
+        return {"progressToken": params.get("token"), "progress": params.get("value", 0), "total": params.get("total")}

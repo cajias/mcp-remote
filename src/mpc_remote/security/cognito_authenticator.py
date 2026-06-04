@@ -1,4 +1,5 @@
 """Cognito Authentication Module."""
+
 import json
 import os
 import time
@@ -19,7 +20,7 @@ def _validate_https_url(url: str) -> str:
     :raises ValueError: If URL scheme is not HTTPS
     """
     parsed_url = urlparse(url)
-    if parsed_url.scheme != 'https':
+    if parsed_url.scheme != "https":
         raise ValueError(f"Only HTTPS URLs are allowed. Got: {url}")
     return url
 
@@ -37,11 +38,8 @@ class CognitoAuthenticator:
     """
 
     def __init__(
-        self,
-        pool_id: Optional[str] = None,
-        region: Optional[str] = None,
-        client_id: Optional[str] = None
-    )->None:
+        self, pool_id: Optional[str] = None, region: Optional[str] = None, client_id: Optional[str] = None
+    ) -> None:
         """
         Initialize Cognito Authenticator with configurable parameters.
 
@@ -50,9 +48,9 @@ class CognitoAuthenticator:
         :param client_id: Cognito Client ID (optional, reads from env)
         """
         # Prioritize passed parameters, then environment variables
-        self.pool_id = pool_id or os.getenv('COGNITO_POOL_ID')
-        self.region = region or os.getenv('AWS_REGION')
-        self.client_id = client_id or os.getenv('COGNITO_CLIENT_ID')
+        self.pool_id = pool_id or os.getenv("COGNITO_POOL_ID")
+        self.region = region or os.getenv("AWS_REGION")
+        self.client_id = client_id or os.getenv("COGNITO_CLIENT_ID")
 
         if not all([self.pool_id, self.region, self.client_id]):
             raise ValueError(
@@ -70,11 +68,7 @@ class CognitoAuthenticator:
         self._keys_last_fetched = 0
 
         # Initialize Cognito Identity Provider client
-        self.cognito_client = (
-            boto3.client('cognito-idp', region_name=self.region)
-            if boto3 is not None
-            else None
-        )
+        self.cognito_client = boto3.client("cognito-idp", region_name=self.region) if boto3 is not None else None
 
     def _fetch_public_keys(self, force_refresh: bool = False) -> Dict[str, Any]:
         """
@@ -85,9 +79,7 @@ class CognitoAuthenticator:
         """
         # Cache keys for 1 hour to reduce network calls
         current_time = time.time()
-        if (not force_refresh and
-            self._public_keys is not None and
-            (current_time - self._keys_last_fetched) < 3600):
+        if not force_refresh and self._public_keys is not None and (current_time - self._keys_last_fetched) < 3600:
             return self._public_keys
 
         try:
@@ -95,10 +87,7 @@ class CognitoAuthenticator:
             with urllib.request.urlopen(url) as response:  # noqa: S310
                 jwks = json.load(response)
 
-            self._public_keys = {
-                key["kid"]: RSAAlgorithm.from_jwk(json.dumps(key))
-                for key in jwks["keys"]
-            }
+            self._public_keys = {key["kid"]: RSAAlgorithm.from_jwk(json.dumps(key)) for key in jwks["keys"]}
 
             self._keys_last_fetched = current_time
 

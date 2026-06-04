@@ -10,7 +10,8 @@ import jsonschema
 
 class ValidationError(Exception):
     """Custom exception for validation failures"""
-    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None)->None:
+
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None) -> None:
         """
         Initialize validation error
 
@@ -20,23 +21,27 @@ class ValidationError(Exception):
         super().__init__(message)
         self.details = details or {}
 
+
 class ValidationType(Enum):
     """Supported validation types"""
+
     JSON_SCHEMA = auto()
     REGEX = auto()
     CUSTOM = auto()
     TYPE = auto()
 
+
 class Validator:
     """
     Comprehensive validation utility for complex data structures
     """
+
     @staticmethod
     def validate(
         data: Any,
         validation_type: ValidationType,
         validation_spec: Union[Dict[str, Any], str, Callable],
-        allow_none: bool = False
+        allow_none: bool = False,
     ) -> bool:
         """
         Validate data against specified validation type
@@ -72,18 +77,11 @@ class Validator:
 
         except Exception as e:
             raise ValidationError(
-                f"Validation failed: {e!s}",
-                details={
-                    'data': data,
-                    'validation_type': validation_type.name
-                }
+                f"Validation failed: {e!s}", details={"data": data, "validation_type": validation_type.name}
             ) from e
 
     @staticmethod
-    def _validate_json_schema(
-        data: Any,
-        schema: Dict[str, Any]
-    ) -> bool:
+    def _validate_json_schema(data: Any, schema: Dict[str, Any]) -> bool:
         """
         Validate data against JSON Schema
 
@@ -95,10 +93,7 @@ class Validator:
         return True
 
     @staticmethod
-    def _validate_regex(
-        data: Any,
-        pattern: str
-    ) -> bool:
+    def _validate_regex(data: Any, pattern: str) -> bool:
         """
         Validate data against regex pattern
 
@@ -115,10 +110,7 @@ class Validator:
         return True
 
     @staticmethod
-    def _validate_custom(
-        data: Any,
-        validator: Callable[[Any], bool]
-    ) -> bool:
+    def _validate_custom(data: Any, validator: Callable[[Any], bool]) -> bool:
         """
         Validate data using custom validation function
 
@@ -132,10 +124,7 @@ class Validator:
         return True
 
     @staticmethod
-    def _validate_type(
-        data: Any,
-        expected_type: Union[type, tuple]
-    ) -> bool:
+    def _validate_type(data: Any, expected_type: Union[type, tuple]) -> bool:
         """
         Validate data type
 
@@ -148,15 +137,14 @@ class Validator:
 
         return True
 
+
 class DataNormalizer:
     """
     Utility for normalizing and transforming data
     """
+
     @staticmethod
-    def normalize_json(
-        data: Any,
-        indent: Optional[int] = None
-    ) -> str:
+    def normalize_json(data: Any, indent: Optional[int] = None) -> str:
         """
         Normalize JSON data to consistent format
 
@@ -164,18 +152,10 @@ class DataNormalizer:
         :param indent: Indentation for pretty printing
         :return: Normalized JSON string
         """
-        return json.dumps(
-            data,
-            sort_keys=True,
-            indent=indent
-        )
+        return json.dumps(data, sort_keys=True, indent=indent)
 
     @staticmethod
-    def sanitize_input(
-        input_data: str,
-        max_length: Optional[int] = None,
-        allowed_chars: Optional[str] = None
-    ) -> str:
+    def sanitize_input(input_data: str, max_length: Optional[int] = None, allowed_chars: Optional[str] = None) -> str:
         """
         Sanitize input string
 
@@ -190,45 +170,30 @@ class DataNormalizer:
 
         # Filter allowed characters
         if allowed_chars:
-            input_data = re.sub(
-                f'[^{re.escape(allowed_chars)}]',
-                '',
-                input_data
-            )
+            input_data = re.sub(f"[^{re.escape(allowed_chars)}]", "", input_data)
 
         return input_data.strip()
 
+
 # Example usage
-def example_validation()->None:
+def example_validation() -> None:
     """Demonstrate validation functionality"""
     # JSON Schema validation
     schema = {
         "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "age": {"type": "number", "minimum": 0}
-        },
-        "required": ["name"]
+        "properties": {"name": {"type": "string"}, "age": {"type": "number", "minimum": 0}},
+        "required": ["name"],
     }
 
     # Validate valid data
     valid_data = {"name": "John", "age": 30}
-    print("Valid data:",
-        Validator.validate(
-            valid_data,
-            ValidationType.JSON_SCHEMA,
-            schema
-        )
-    )
+    print("Valid data:", Validator.validate(valid_data, ValidationType.JSON_SCHEMA, schema))
 
     # Regex validation
-    print("Regex validation:",
-        Validator.validate(
-            "john@example.com",
-            ValidationType.REGEX,
-            r'^[\w\.-]+@[\w\.-]+\.\w+$'
-        )
+    print(
+        "Regex validation:", Validator.validate("john@example.com", ValidationType.REGEX, r"^[\w\.-]+@[\w\.-]+\.\w+$")
     )
+
 
 # Main execution
 if __name__ == "__main__":
